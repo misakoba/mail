@@ -63,8 +63,7 @@ def test_send_recaptcha_request_failed(
             mock_raise_for_status = mock_post.return_value.raise_for_status
             mock_raise_for_status.side_effect = requests.HTTPError(
                 'Bad request.')
-            response = client.post(
-                f'/send?recaptcha_response=my_token')
+            response = client.post('/send?recaptcha_response=my_token')
             mock_post.assert_called_once_with(
                 'https://www.google.com/recaptcha/api/siteverify',
                 params={'secret': 'my_secret',
@@ -73,7 +72,6 @@ def test_send_recaptcha_request_failed(
                     http.HTTPStatus.INTERNAL_SERVER_ERROR)
             assert (b'Error in communicating with reCAPTCHA server.' in
                     response.data)
-
 
 if __name__ == '__main__':
     pytest.main()
