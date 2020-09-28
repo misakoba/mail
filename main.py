@@ -3,7 +3,7 @@
 import os
 
 import flask
-import flask_cors
+import flask_cors  # type: ignore
 import requests
 
 app = flask.Flask(__name__)  # Default GAE Entry point

@@ -4,7 +4,9 @@ import http
 from unittest import mock
 
 import pytest
-import pytest_subtests  # pylint: disable=unused-import # noqa: F401
+# pylint: disable=unused-import
+import pytest_subtests  # type: ignore # noqa: F401
+# pylint: enable=unused-import
 
 import main
 
