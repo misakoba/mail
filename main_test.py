@@ -73,5 +73,6 @@ def test_send_recaptcha_request_failed(
             assert (b'Error in communicating with reCAPTCHA server.' in
                     response.data)
 
+
 if __name__ == '__main__':
     pytest.main()
