@@ -1,11 +1,26 @@
-from flask import Flask
+"""A Flask app implementing the mailing backend for misakoba.github.io."""
 
-app = Flask(__name__)  # Default GAE Entry point
+import os
+
+import flask
+import flask_cors
+import requests
+
+app = flask.Flask(__name__)  # Default GAE Entry point
+flask_cors.CORS(app)
 
 
-@app.route('/')
-def hello():
-    return 'Hello from misakoba-mail'
+@app.route('/send', methods=['POST'])
+def send():
+    """Serves the '/send' endpoint for sending messages."""
+    requests.post(
+        'https://www.google.com/recaptcha/api/siteverify',
+        params={
+            'secret': os.environ['RECAPTCHA_SECRET'],
+            'response': flask.request.args['recaptcha_response'],
+        })
+
+    return 'Successfully validated message request.'
 
 
 if __name__ == '__main__':
