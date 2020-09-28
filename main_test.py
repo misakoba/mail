@@ -9,9 +9,7 @@ import pytest_subtests  # type: ignore # noqa: F401
 # pylint: enable=unused-import
 import requests
 
-with mock.patch.dict('os.environ',
-                     {'RECAPTCHA_SECRET': 'some_secret'}):
-    import main
+import main
 
 
 @pytest.fixture

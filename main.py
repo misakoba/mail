@@ -57,8 +57,5 @@ def create_app_or_die():
         sys.exit(str(error))
 
 
-app = create_app_or_die()  # Default GAE Entry point
-
-
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=8080, debug=True)
+    create_app_or_die().run(host='127.0.0.1', port=8080, debug=True)
