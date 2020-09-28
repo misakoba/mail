@@ -10,6 +10,7 @@ import requests
 app = flask.Flask(__name__)  # Default GAE Entry point
 flask_cors.CORS(app)
 
+
 @app.route('/send', methods=['POST'])
 def send():
     """Serves the '/send' endpoint for sending messages."""
