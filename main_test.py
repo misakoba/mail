@@ -15,8 +15,9 @@ import main
 @pytest.fixture
 def client():
     """Creates and returns the default Flask test client fixture."""
-    main.app.testing = True
-    return main.app.test_client()
+    app = main.create_app()
+    app.testing = True
+    return app.test_client()
 
 
 def test_successful_send(client,  # pylint: disable=redefined-outer-name
