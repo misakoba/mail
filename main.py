@@ -21,7 +21,7 @@ class UndefinedReCAPTCHASecretError(MisakobaMailError):
 
 def create_app():
     """Creates the Flask app."""
-    app = flask.Flask(__name__)  # pylint: disable=redefined-outer-name
+    app = flask.Flask(__name__)
     flask_cors.CORS(app)
 
     app.config['RECAPTCHA_SECRET'] = os.environ.get('RECAPTCHA_SECRET')
