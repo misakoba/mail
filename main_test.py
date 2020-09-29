@@ -92,13 +92,13 @@ def test_send_env_variable_recaptcha_secret(subtests):
             assert response.data == b'Successfully validated message request.'
 
 
-def test_send_without_recaptcha_response_returns_403_error(client):
-    """Test 403 error when recaptcha ticket is missing."""
+def test_send_without_recaptcha_response_returns_400_error(client):
+    """Test 400 error returned when reCAPTCHA token is missing."""
     with mock.patch('requests.post', autospec=True) as mock_post:
         response = client.post('/send')
 
     mock_post.assert_not_called()
-    assert response.status_code == http.HTTPStatus.FORBIDDEN
+    assert response.status_code == http.HTTPStatus.BAD_REQUEST
     assert (b'Request sent without recaptcha_response parameter.' in
             response.data)
 
