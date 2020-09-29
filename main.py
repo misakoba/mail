@@ -1,10 +1,12 @@
 """A Flask app implementing the mailing backend for misakoba.github.io."""
 
 import http
+import json
 import sys
 import os
 
 import flask
+import werkzeug.exceptions
 import flask_cors  # type: ignore
 import requests
 
@@ -46,9 +48,21 @@ def create_app():
             response.raise_for_status()
         except requests.HTTPError:
             flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
-                        b'Error in communicating with reCAPTCHA server.')
+                        'Error in communicating with reCAPTCHA server.')
 
         return 'Successfully validated message request.'
+
+    @app.errorhandler(werkzeug.exceptions.HTTPException)
+    def handle_exception(error):  # pylint: disable=unused-variable
+        """Return JSON instead of HTML for HTTP errors."""
+        response = error.get_response()
+        response.data = json.dumps({
+            'code': error.code,
+            'name': error.name,
+            'description': error.description,
+        })
+        response.content_type = 'application/json'
+        return response
 
     return app
 

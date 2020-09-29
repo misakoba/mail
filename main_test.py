@@ -1,6 +1,7 @@
 """Unit tests for misakoba-mail's main module."""
 
 import http
+import json
 from unittest import mock
 
 import pytest
@@ -43,9 +44,10 @@ def test_successful_send(client, subtests):
 
 
 def test_send_wrong_method(client):
-    """Tests a 403 error returned when accessing send with a bad method."""
-    assert (client.get('/send').status_code ==
-            http.HTTPStatus.METHOD_NOT_ALLOWED)
+    """Tests a 405 error returned when accessing send with a bad method."""
+    response = client.get('/send')
+    assert response.status_code == http.HTTPStatus.METHOD_NOT_ALLOWED
+    assert response.content_type == 'application/json'
 
 
 def test_send_recaptcha_request_failed(client):
@@ -66,8 +68,12 @@ def test_send_recaptcha_request_failed(client):
                     'response': 'my_token'})
         assert (response.status_code ==
                 http.HTTPStatus.INTERNAL_SERVER_ERROR)
-        assert (b'Error in communicating with reCAPTCHA server.' in
-                response.data)
+        assert response.content_type == 'application/json'
+        assert json.loads(response.data) == {
+            'code': http.HTTPStatus.INTERNAL_SERVER_ERROR,
+            'name': 'Internal Server Error',
+            'description': 'Error in communicating with reCAPTCHA server.',
+        }
 
 
 def test_send_env_variable_recaptcha_secret(subtests):
@@ -99,8 +105,12 @@ def test_send_without_recaptcha_response_returns_400_error(client):
 
     mock_post.assert_not_called()
     assert response.status_code == http.HTTPStatus.BAD_REQUEST
-    assert (b'Request sent without recaptcha_response parameter.' in
-            response.data)
+    assert response.content_type == 'application/json'
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.BAD_REQUEST,
+        'name': 'Bad Request',
+        'description': 'Request sent without recaptcha_response parameter.'
+    }
 
 
 def test_app_creation_failed_no_recaptcha_secret():
