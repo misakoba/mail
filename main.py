@@ -31,6 +31,10 @@ def create_app():
     @app.route('/send', methods=['POST'])
     def send():  # pylint: disable=unused-variable
         """Serves the '/send' endpoint for sending messages."""
+        if 'recaptcha_response' not in flask.request.args:
+            flask.abort(http.HTTPStatus.FORBIDDEN,
+                        'Request sent without recaptcha_response parameter.')
+
         response = requests.post(
             'https://www.google.com/recaptcha/api/siteverify',
             params={

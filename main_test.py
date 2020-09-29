@@ -12,8 +12,8 @@ import requests
 import main
 
 
-@pytest.fixture
-def client():
+@pytest.fixture(name='client')
+def test_client():
     """Creates and returns the default Flask test client fixture."""
     with mock.patch.dict('os.environ',
                          {'RECAPTCHA_SECRET': 'some_secret'}):
@@ -22,8 +22,7 @@ def client():
     return app.test_client()
 
 
-def test_successful_send(client,  # pylint: disable=redefined-outer-name
-                         subtests):
+def test_successful_send(client, subtests):
     """Tests messages successfully sent."""
     recaptcha_responses = [
         'my_request_token',
@@ -43,14 +42,13 @@ def test_successful_send(client,  # pylint: disable=redefined-outer-name
             assert response.data == b'Successfully validated message request.'
 
 
-def test_send_wrong_method(client):  # pylint: disable=redefined-outer-name
+def test_send_wrong_method(client):
     """Tests a 403 error returned when accessing send with a bad method."""
     assert (client.get('/send').status_code ==
             http.HTTPStatus.METHOD_NOT_ALLOWED)
 
 
-def test_send_recaptcha_request_failed(
-        client):  # pylint: disable=redefined-outer-name
+def test_send_recaptcha_request_failed(client):
     """Tests a 500 error returned when accessing send with a bad method."""
     mock_recaptcha_response = mock.create_autospec(requests.Response,
                                                    instance=True)
@@ -80,10 +78,10 @@ def test_send_env_variable_recaptcha_secret(subtests):
                                  {'RECAPTCHA_SECRET': recaptcha_secret}):
                 app = main.create_app()
             app.testing = True
-            test_client = app.test_client()
+            client = app.test_client()
 
             with mock.patch('requests.post', autospec=True) as mock_post:
-                response = test_client.post(
+                response = client.post(
                     '/send?recaptcha_response=some_token')
 
             mock_post.assert_called_once_with(
@@ -92,6 +90,17 @@ def test_send_env_variable_recaptcha_secret(subtests):
                         'response': 'some_token'})
             assert response.status_code == http.HTTPStatus.OK
             assert response.data == b'Successfully validated message request.'
+
+
+def test_send_without_recaptcha_response_returns_403_error(client):
+    """Test 403 error when recaptcha ticket is missing."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        response = client.post('/send')
+
+    mock_post.assert_not_called()
+    assert response.status_code == http.HTTPStatus.FORBIDDEN
+    assert (b'Request sent without recaptcha_response parameter.' in
+            response.data)
 
 
 def test_app_creation_failed_no_recaptcha_secret():
