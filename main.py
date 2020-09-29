@@ -46,7 +46,9 @@ def create_app():
 
         try:
             response.raise_for_status()
-        except requests.HTTPError:
+        except requests.HTTPError as error:
+            app.logger.exception(  # pylint: disable=no-member
+                f'Error in communicating with reCAPTCHA server: {error}')
             flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
                         'Error in communicating with reCAPTCHA server.')
 

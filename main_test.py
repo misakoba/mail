@@ -39,6 +39,7 @@ def test_successful_send(client, subtests):
                 'https://www.google.com/recaptcha/api/siteverify',
                 params={'secret': mock.ANY,
                         'response': recaptcha_response})
+
             assert response.status_code == http.HTTPStatus.OK
             assert response.data == b'Successfully validated message request.'
 
@@ -46,6 +47,7 @@ def test_successful_send(client, subtests):
 def test_send_wrong_method(client):
     """Tests a 405 error returned when accessing send with a bad method."""
     response = client.get('/send')
+
     assert response.status_code == http.HTTPStatus.METHOD_NOT_ALLOWED
     assert response.content_type == 'application/json'
 
@@ -66,6 +68,7 @@ def test_send_recaptcha_request_failed(client):
             'https://www.google.com/recaptcha/api/siteverify',
             params={'secret': mock.ANY,
                     'response': 'my_token'})
+
         assert (response.status_code ==
                 http.HTTPStatus.INTERNAL_SERVER_ERROR)
         assert response.content_type == 'application/json'
@@ -74,6 +77,29 @@ def test_send_recaptcha_request_failed(client):
             'name': 'Internal Server Error',
             'description': 'Error in communicating with reCAPTCHA server.',
         }
+
+
+def test_send_recaptcha_request_failure_logged(client, caplog):
+    """Tests that the HTTPRequestError is logged on reCAPTCHA HTTP failure."""
+    mock_recaptcha_response = mock.create_autospec(requests.Response,
+                                                   instance=True)
+    mock_recaptcha_response.raise_for_status.side_effect = requests.HTTPError(
+        'Bad request.')
+
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_raise_for_status = mock_post.return_value.raise_for_status
+        mock_raise_for_status.side_effect = requests.HTTPError(
+            'Bad request.')
+        client.post('/send?recaptcha_response=my_token')
+
+    def matches_expected(record):
+        return (record.levelname == 'ERROR' and
+                record.getMessage() == 'Error in communicating with '
+                                       'reCAPTCHA server: Bad request.' and
+                record.exc_info)
+
+    assert next((record for record in caplog.records
+                 if matches_expected(record)), None)
 
 
 def test_send_env_variable_recaptcha_secret(subtests):
