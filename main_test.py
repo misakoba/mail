@@ -38,10 +38,30 @@ def test_successful_send(client, subtests):
             mock_post.assert_called_once_with(
                 'https://www.google.com/recaptcha/api/siteverify',
                 params={'secret': mock.ANY,
-                        'response': recaptcha_response})
+                        'response': recaptcha_response,
+                        'remoteip': mock.ANY
+                        })
 
             assert response.status_code == http.HTTPStatus.OK
             assert response.data == b'Successfully validated message request.'
+
+
+def test_send_propagates_remote_ip(client, subtests):
+    """Tests remote IP address sent to reCAPTCHA server."""
+    for remote_addr in ['123.45.67.89', '98.76.54.123']:
+        with subtests.test(remote_addr=remote_addr):
+            with mock.patch('requests.post', autospec=True) as mock_post:
+                client.post(
+                    '/send?recaptcha_response=some_token',
+                    environ_base={'REMOTE_ADDR': remote_addr}
+                )
+
+            mock_post.assert_called_once_with(
+                'https://www.google.com/recaptcha/api/siteverify',
+                params={'secret': mock.ANY,
+                        'response': 'some_token',
+                        'remoteip': remote_addr,
+                        })
 
 
 def test_send_wrong_method(client):
@@ -67,7 +87,8 @@ def test_send_recaptcha_request_failed(client):
         mock_post.assert_called_once_with(
             'https://www.google.com/recaptcha/api/siteverify',
             params={'secret': mock.ANY,
-                    'response': 'my_token'})
+                    'response': 'my_token',
+                    'remoteip': mock.ANY})
 
         assert (response.status_code ==
                 http.HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -119,7 +140,8 @@ def test_send_env_variable_recaptcha_secret(subtests):
             mock_post.assert_called_once_with(
                 'https://www.google.com/recaptcha/api/siteverify',
                 params={'secret': recaptcha_secret,
-                        'response': 'some_token'})
+                        'response': 'some_token',
+                        'remoteip': mock.ANY})
             assert response.status_code == http.HTTPStatus.OK
             assert response.data == b'Successfully validated message request.'
 

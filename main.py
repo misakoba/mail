@@ -42,6 +42,7 @@ def create_app():
             params={
                 'secret': app.config['RECAPTCHA_SECRET'],
                 'response': flask.request.args['recaptcha_response'],
+                'remoteip': flask.request.remote_addr,
             })
 
         try:
