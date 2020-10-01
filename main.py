@@ -33,10 +33,19 @@ def create_app():
     @app.route('/send', methods=['POST'])
     def send():  # pylint: disable=unused-variable
         """Serves the '/send' endpoint for sending messages."""
+        _validate_send_parameters()
+        response = _post_to_recaptcha_site_verify()
+        _check_recaptcha_site_verify_http_status(response)
+        _check_recaptcha_site_verify_response_contents(response)
+
+        return 'Successfully validated message request.'
+
+    def _validate_send_parameters():
         if 'recaptcha_response' not in flask.request.args:
             flask.abort(http.HTTPStatus.BAD_REQUEST,
                         'Request sent without recaptcha_response parameter.')
 
+    def _post_to_recaptcha_site_verify():
         response = requests.post(
             'https://www.google.com/recaptcha/api/siteverify',
             params={
@@ -44,7 +53,9 @@ def create_app():
                 'response': flask.request.args['recaptcha_response'],
                 'remoteip': flask.request.remote_addr,
             })
+        return response
 
+    def _check_recaptcha_site_verify_http_status(response):
         try:
             response.raise_for_status()
         except requests.HTTPError as error:
@@ -53,16 +64,17 @@ def create_app():
             flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
                         'Error in communicating with reCAPTCHA server.')
 
+    def _check_recaptcha_site_verify_response_contents(response):
         site_verify_response = response.json()
         if site_verify_response['success']:
-            action = site_verify_response['action']
-            if action != 'submit':
-                flask.abort(
-                    http.HTTPStatus.BAD_REQUEST,
-                    f'The received reCAPTCHA action "{action}" is not '
-                    'expected on this server.')
+            _check_recaptcha_action(site_verify_response['action'])
 
-        return 'Successfully validated message request.'
+    def _check_recaptcha_action(action):
+        if action != 'submit':
+            flask.abort(
+                http.HTTPStatus.BAD_REQUEST,
+                f'The received reCAPTCHA action "{action}" is not '
+                'expected on this server.')
 
     @app.errorhandler(werkzeug.exceptions.HTTPException)
     def handle_exception(error):  # pylint: disable=unused-variable
