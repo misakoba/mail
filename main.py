@@ -53,6 +53,15 @@ def create_app():
             flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
                         'Error in communicating with reCAPTCHA server.')
 
+        site_verify_response = response.json()
+        if site_verify_response['success']:
+            action = site_verify_response['action']
+            if action != 'submit':
+                flask.abort(
+                    http.HTTPStatus.BAD_REQUEST,
+                    f'The received reCAPTCHA action "{action}" is not '
+                    'expected on this server.')
+
         return 'Successfully validated message request.'
 
     @app.errorhandler(werkzeug.exceptions.HTTPException)

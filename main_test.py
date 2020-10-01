@@ -5,9 +5,6 @@ import json
 from unittest import mock
 
 import pytest
-# pylint: disable=unused-import
-import pytest_subtests  # type: ignore # noqa: F401
-# pylint: enable=unused-import
 import requests
 
 import main
@@ -32,6 +29,10 @@ def test_successful_send(client, subtests):
     for recaptcha_response in recaptcha_responses:
         with subtests.test(recaptcha_response=recaptcha_response):
             with mock.patch('requests.post', autospec=True) as mock_post:
+                mock_json = mock_post.return_value.json
+                mock_json.return_value = _a_site_verify_response_with(
+                    success=True)
+
                 response = client.post(
                     f'/send?recaptcha_response={recaptcha_response}')
 
@@ -41,7 +42,6 @@ def test_successful_send(client, subtests):
                         'response': recaptcha_response,
                         'remoteip': mock.ANY
                         })
-
             assert response.status_code == http.HTTPStatus.OK
             assert response.data == b'Successfully validated message request.'
 
@@ -134,16 +134,13 @@ def test_send_env_variable_recaptcha_secret(subtests):
             client = app.test_client()
 
             with mock.patch('requests.post', autospec=True) as mock_post:
-                response = client.post(
-                    '/send?recaptcha_response=some_token')
+                client.post('/send?recaptcha_response=some_token')
 
             mock_post.assert_called_once_with(
                 'https://www.google.com/recaptcha/api/siteverify',
                 params={'secret': recaptcha_secret,
                         'response': 'some_token',
                         'remoteip': mock.ANY})
-            assert response.status_code == http.HTTPStatus.OK
-            assert response.data == b'Successfully validated message request.'
 
 
 def test_send_without_recaptcha_response_returns_400_error(client):
@@ -159,6 +156,27 @@ def test_send_without_recaptcha_response_returns_400_error(client):
         'name': 'Bad Request',
         'description': 'Request sent without recaptcha_response parameter.'
     }
+
+
+def test_send_with_unexpected_action_returns_400_error(client, subtests):
+    """Test 400 error returned when reCAPTCHA action is not 'submit'."""
+    for action in ['bad_action', 'unexpected_action']:
+        with subtests.test(action=action):
+            with mock.patch('requests.post', autospec=True) as mock_post:
+                mock_json = mock_post.return_value.json
+                mock_json.return_value = _a_site_verify_response_with(
+                    success=True, action=action)
+
+                response = client.post('/send?recaptcha_response=some_token')
+
+            assert response.status_code == http.HTTPStatus.BAD_REQUEST
+            assert response.content_type == 'application/json'
+            assert json.loads(response.data) == {
+                'code': http.HTTPStatus.BAD_REQUEST,
+                'name': 'Bad Request',
+                'description': f'The received reCAPTCHA action "{action}" '
+                               'is not expected on this server.'
+            }
 
 
 def test_app_creation_failed_no_recaptcha_secret():
@@ -181,6 +199,32 @@ def test_create_app_or_die_graceful_death_on_creation_failure():
                 'Cannot create web application without RECAPTCHA_SECRET '
                 'configuration value.')):
             main.create_app_or_die()
+
+
+def _a_site_verify_response_with(
+        *,
+        success=True,
+        score=None,
+        action=None,
+        challenge_ts=None,
+        hostname=None,
+        error_codes=None):
+    response = {'success': success}
+
+    for var, attribute, present_on_success, default in [
+        (score, 'score', True, 0.9),
+        (action, 'action', True, 'submit'),
+        (challenge_ts, 'challenge_ts', True, '2020-10-01T03:17:06Z'),
+        (hostname, 'hostname', True, 'some_verify_host'),
+        (error_codes, 'error=codes', False, ['invalid-input-secret']),
+    ]:
+        if var is None:
+            if success == present_on_success:
+                response[attribute] = default
+        else:
+            response[attribute] = var
+
+    return response
 
 
 if __name__ == '__main__':
