@@ -22,20 +22,6 @@ class UndefinedReCAPTCHASecretError(MisakobaMailError):
     """Error for undefined reCAPTCHA secret."""
 
 
-class ReCAPTCHAScoreTooLowError(MisakobaMailError):
-    """Error for reCAPTCHA score being too low to send a message."""
-    def __init__(self, score):
-        super().__init__(
-            f'The received reCAPTCHA score {score} was too low to send a '
-            'message.')
-        self._score = score
-
-    @property
-    def score(self):
-        """The score returned by reCAPTCHA site verify."""
-        return self._score
-
-
 def create_app():
     """Creates the Flask app."""
     app = flask.Flask(__name__)
@@ -96,7 +82,9 @@ def create_app():
 
     def _check_recaptcha_score(score):
         if score < RECAPTCHA_DEFAULT_SCORE_THRESHOLD:
-            raise ReCAPTCHAScoreTooLowError(score)
+            flask.abort(http.HTTPStatus.BAD_REQUEST,
+                        f'The received reCAPTCHA score {score} was too low to '
+                        f'send a message.')
 
     @app.errorhandler(werkzeug.exceptions.HTTPException)
     def handle_exception(error):  # pylint: disable=unused-variable
@@ -109,17 +97,6 @@ def create_app():
         })
         response.content_type = 'application/json'
         return response
-
-    @app.errorhandler(ReCAPTCHAScoreTooLowError)
-    def handle_recaptcha_score_error(error):  # pylint: disable=unused-variable
-        """Create a JSON 400 HTTP Status response for a low reCAPTCHA score."""
-        bad_request_status = http.HTTPStatus.BAD_REQUEST
-        return flask.make_response(
-            {'code': bad_request_status,
-             'name': bad_request_status.phrase,
-             'description': str(error),
-             'score': error.score},
-            bad_request_status)
 
     return app
 

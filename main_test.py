@@ -198,7 +198,6 @@ def test_send_with_recaptcha_score_below_threshold_400_error(client, subtests):
                 'name': 'Bad Request',
                 'description': f'The received reCAPTCHA score {score} was too '
                                'low to send a message.',
-                'score': score,
             }
 
 
