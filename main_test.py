@@ -179,6 +179,29 @@ def test_send_with_unexpected_action_returns_400_error(client, subtests):
             }
 
 
+def test_send_with_recaptcha_score_below_threshold_400_error(client, subtests):
+    """Test 400 error returned when reCAPTCHA score is below threshold."""
+    for score in [main.RECAPTCHA_DEFAULT_SCORE_THRESHOLD - 0.1,
+                  main.RECAPTCHA_DEFAULT_SCORE_THRESHOLD - 0.2]:
+        with subtests.test(score=score):
+            with mock.patch('requests.post', autospec=True) as mock_post:
+                mock_json = mock_post.return_value.json
+                mock_json.return_value = _a_site_verify_response_with(
+                    success=True, score=score)
+
+                response = client.post('/send?recaptcha_response=some_token')
+
+            assert response.status_code == http.HTTPStatus.BAD_REQUEST
+            assert response.content_type == 'application/json'
+            assert json.loads(response.data) == {
+                'code': http.HTTPStatus.BAD_REQUEST,
+                'name': 'Bad Request',
+                'description': f'The received reCAPTCHA score {score} was too '
+                               'low to send a message.',
+                'score': score,
+            }
+
+
 def test_app_creation_failed_no_recaptcha_secret():
     """Test exception raised when reCAPTCHA secret is undefined."""
     with mock.patch.dict('os.environ', clear=True):
@@ -213,7 +236,7 @@ def _a_site_verify_response_with(
 
     for var, attribute, present_on_success, default in [
         (score, 'score', True, 0.9),
-        (action, 'action', True, 'submit'),
+        (action, 'action', True, main.RECAPTCHA_DEFAULT_EXPECTED_ACTION),
         (challenge_ts, 'challenge_ts', True, '2020-10-01T03:17:06Z'),
         (hostname, 'hostname', True, 'some_verify_host'),
         (error_codes, 'error=codes', False, ['invalid-input-secret']),
