@@ -10,6 +10,8 @@ import werkzeug.exceptions
 import flask_cors  # type: ignore
 import requests
 
+RECAPTCHA_DEFAULT_EXPECTED_ACTION = 'submit'
+
 
 class MisakobaMailError(Exception):
     """Base class for application-specific errors."""
@@ -70,7 +72,7 @@ def create_app():
             _check_recaptcha_action(site_verify_response['action'])
 
     def _check_recaptcha_action(action):
-        if action != 'submit':
+        if action != RECAPTCHA_DEFAULT_EXPECTED_ACTION:
             flask.abort(
                 http.HTTPStatus.BAD_REQUEST,
                 f'The received reCAPTCHA action "{action}" is not '
