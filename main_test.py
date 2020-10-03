@@ -246,6 +246,25 @@ def test_send_with_stale_or_duplicate_recaptcha_response_400_error(
             }
 
 
+def test_send_site_verify_non_client_errors_returns_500_error(client):
+    """Test 500 error returned when site verify has non-client errors."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(
+            success=False, error_codes=['some-other-error', 'another-error'])
+
+        response = client.post('/send?recaptcha_response=some_response_token')
+
+    assert response.status_code == http.HTTPStatus.INTERNAL_SERVER_ERROR
+    assert response.content_type == 'application/json'
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.INTERNAL_SERVER_ERROR,
+        'name': 'Internal Server Error',
+        'description': 'An error was encountered when validating the '
+                       'reCAPTCHA response token. Please try again later.',
+    }
+
+
 def test_app_creation_failed_no_recaptcha_secret():
     """Test exception raised when reCAPTCHA secret is undefined."""
     with mock.patch.dict('os.environ', clear=True):
