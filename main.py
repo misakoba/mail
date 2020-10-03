@@ -53,14 +53,6 @@ def create_app():
             'https://www.google.com/recaptcha/api/siteverify',
             params=_recaptcha_site_verify_params())
 
-    def _recaptcha_site_verify_params():
-        site_verify_params = {
-            'secret': app.config['RECAPTCHA_SECRET'],
-            'response': flask.request.args['recaptcha_response'],
-            'remoteip': flask.request.remote_addr,
-        }
-        return site_verify_params
-
     def _check_recaptcha_site_verify_http_status(response):
         try:
             response.raise_for_status()
@@ -124,6 +116,14 @@ def create_app():
         flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
                     'An error was encountered when validating the '
                     'reCAPTCHA response token. Please try again later.')
+
+    def _recaptcha_site_verify_params():
+        site_verify_params = {
+            'secret': app.config['RECAPTCHA_SECRET'],
+            'response': flask.request.args['recaptcha_response'],
+            'remoteip': flask.request.remote_addr,
+        }
+        return site_verify_params
 
     @app.errorhandler(werkzeug.exceptions.HTTPException)
     def handle_exception(error):  # pylint: disable=unused-variable
