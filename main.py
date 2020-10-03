@@ -73,7 +73,7 @@ def create_app():
             _check_recaptcha_action(site_verify_response['action'])
             _check_recaptcha_score(site_verify_response['score'])
         else:
-            _check_site_verify_response_invalid_input_secret(
+            _check_site_verify_response_invalid_input_response(
                 site_verify_response)
 
             flask.abort(
@@ -82,8 +82,9 @@ def create_app():
                 f'"{flask.request.args["recaptcha_response"]}" was too old or '
                 'previously used.')
 
-    def _check_site_verify_response_invalid_input_secret(site_verify_response):
-        if site_verify_response['error-codes'] == ['invalid-input-secret']:
+    def _check_site_verify_response_invalid_input_response(
+            site_verify_response):
+        if site_verify_response['error-codes'] == ['invalid-input-response']:
             flask.abort(
                 http.HTTPStatus.BAD_REQUEST,
                 'The recaptcha_response parameter value '

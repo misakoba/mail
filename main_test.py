@@ -207,7 +207,7 @@ def test_send_with_an_invalid_recaptcha_response_400_error(client, subtests):
             with mock.patch('requests.post', autospec=True) as mock_post:
                 mock_json = mock_post.return_value.json
                 mock_json.return_value = _a_site_verify_response_with(
-                    success=False, error_codes=['invalid-input-secret'])
+                    success=False, error_codes=['invalid-input-response'])
 
                 response = client.post(
                     f'/send?recaptcha_response={recaptcha_response}')
