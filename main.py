@@ -80,28 +80,6 @@ def create_app():
                         'An error was encountered when validating the '
                         'reCAPTCHA response token. Please try again later.')
 
-    def _check_site_verify_response_client_only_errors(site_verify_response):
-        _check_site_verify_response_invalid_input_response(
-            site_verify_response)
-        _check_site_verify_response_timeout_or_duplicate(
-            site_verify_response)
-
-    def _check_site_verify_response_timeout_or_duplicate(site_verify_response):
-        if site_verify_response['error-codes'] == ['timeout-or-duplicate']:
-            flask.abort(
-                http.HTTPStatus.BAD_REQUEST,
-                'The recaptcha_response parameter value '
-                f'"{flask.request.args["recaptcha_response"]}" was too '
-                'old or previously used.')
-
-    def _check_site_verify_response_invalid_input_response(
-            site_verify_response):
-        if site_verify_response['error-codes'] == ['invalid-input-response']:
-            flask.abort(
-                http.HTTPStatus.BAD_REQUEST,
-                'The recaptcha_response parameter value '
-                f'"{flask.request.args["recaptcha_response"]}" was not valid.')
-
     def _check_recaptcha_action(action):
         if action != RECAPTCHA_DEFAULT_EXPECTED_ACTION:
             flask.abort(
@@ -114,6 +92,28 @@ def create_app():
             flask.abort(http.HTTPStatus.BAD_REQUEST,
                         f'The received reCAPTCHA score {score} was too low to '
                         f'send a message.')
+
+    def _check_site_verify_response_client_only_errors(site_verify_response):
+        _check_site_verify_response_invalid_input_response(
+            site_verify_response)
+        _check_site_verify_response_timeout_or_duplicate(
+            site_verify_response)
+
+    def _check_site_verify_response_invalid_input_response(
+            site_verify_response):
+        if site_verify_response['error-codes'] == ['invalid-input-response']:
+            flask.abort(
+                http.HTTPStatus.BAD_REQUEST,
+                'The recaptcha_response parameter value '
+                f'"{flask.request.args["recaptcha_response"]}" was not valid.')
+
+    def _check_site_verify_response_timeout_or_duplicate(site_verify_response):
+        if site_verify_response['error-codes'] == ['timeout-or-duplicate']:
+            flask.abort(
+                http.HTTPStatus.BAD_REQUEST,
+                'The recaptcha_response parameter value '
+                f'"{flask.request.args["recaptcha_response"]}" was too '
+                'old or previously used.')
 
     @app.errorhandler(werkzeug.exceptions.HTTPException)
     def handle_exception(error):  # pylint: disable=unused-variable
