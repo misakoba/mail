@@ -78,15 +78,7 @@ def create_app():
         else:
             _check_site_verify_response_client_only_errors(
                 site_verify_response)
-
-            app.logger.error(  # pylint: disable=no-member
-                'Non-client errors detected in with reCAPTCHA siteverify '
-                'API.\n'
-                f'request parameters: {_recaptcha_site_verify_params()}\n'
-                f'siteverify response data: {site_verify_response}')
-            flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
-                        'An error was encountered when validating the '
-                        'reCAPTCHA response token. Please try again later.')
+            _handle_non_client_site_verify_error(site_verify_response)
 
     def _check_recaptcha_action(action):
         if action != RECAPTCHA_DEFAULT_EXPECTED_ACTION:
@@ -122,6 +114,16 @@ def create_app():
                 'The recaptcha_response parameter value '
                 f'"{flask.request.args["recaptcha_response"]}" was too '
                 'old or previously used.')
+
+    def _handle_non_client_site_verify_error(site_verify_response):
+        app.logger.error(  # pylint: disable=no-member
+            'Non-client errors detected in with reCAPTCHA siteverify '
+            'API.\n'
+            f'request parameters: {_recaptcha_site_verify_params()}\n'
+            f'siteverify response data: {site_verify_response}')
+        flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
+                    'An error was encountered when validating the '
+                    'reCAPTCHA response token. Please try again later.')
 
     @app.errorhandler(werkzeug.exceptions.HTTPException)
     def handle_exception(error):  # pylint: disable=unused-variable

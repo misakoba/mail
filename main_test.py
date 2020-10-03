@@ -295,15 +295,13 @@ def test_send_site_verify_non_client_errors_logged_error(subtests, caplog):
         assert len(error_logs) == 1
         record = error_logs[0]
         assert record.getMessage() == (
-                        'Non-client errors detected in with reCAPTCHA '
-                        'siteverify API.\n'
-                        'request parameters: {'
-                        f"'secret': '{recaptcha_secret}', "
-                        f"'response': '{recaptcha_response}', "
-                        f"'remoteip': '{remote_addr}'}}\n"
-                        "siteverify response data: {'success': False, "
-                        "'error-codes': "
-                        f'{error_codes}}}')
+            'Non-client errors detected in with reCAPTCHA siteverify API.\n'
+            'request parameters: {'
+            f"'secret': '{recaptcha_secret}', "
+            f"'response': '{recaptcha_response}', "
+            f"'remoteip': '{remote_addr}'}}\n"
+            "siteverify response data: {'success': False, "
+            f"'error-codes': {error_codes}}}")
 
 
 def test_app_creation_failed_no_recaptcha_secret():
