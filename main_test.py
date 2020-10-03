@@ -188,7 +188,6 @@ def test_send_with_recaptcha_score_below_threshold_400_error(client, subtests):
                 mock_json = mock_post.return_value.json
                 mock_json.return_value = _a_site_verify_response_with(
                     success=True, score=score)
-
                 response = client.post('/send?recaptcha_response=some_token')
 
             assert response.status_code == http.HTTPStatus.BAD_REQUEST
@@ -220,6 +219,30 @@ def test_send_with_an_invalid_recaptcha_response_400_error(client, subtests):
                 'name': 'Bad Request',
                 'description': 'The recaptcha_response parameter value '
                                f'"{recaptcha_response}" was not valid.',
+            }
+
+
+def test_send_with_stale_or_duplicate_recaptcha_response_400_error(
+        client, subtests):
+    """Test 400 error returned when reCAPTCHA response is stale or duped."""
+    for recaptcha_response in ['some_stale_secrete', 'an already_used_secret']:
+        with subtests.test(recaptcha_response=recaptcha_response):
+            with mock.patch('requests.post', autospec=True) as mock_post:
+                mock_json = mock_post.return_value.json
+                mock_json.return_value = _a_site_verify_response_with(
+                    success=False, error_codes=['timeout-or-duplicate'])
+
+                response = client.post(
+                    f'/send?recaptcha_response={recaptcha_response}')
+
+            assert response.status_code == http.HTTPStatus.BAD_REQUEST
+            assert response.content_type == 'application/json'
+            assert json.loads(response.data) == {
+                'code': http.HTTPStatus.BAD_REQUEST,
+                'name': 'Bad Request',
+                'description': 'The recaptcha_response parameter value '
+                               f'"{recaptcha_response}" was too old or '
+                               'previously used.'
             }
 
 
@@ -260,7 +283,7 @@ def _a_site_verify_response_with(
         (action, 'action', True, main.RECAPTCHA_DEFAULT_EXPECTED_ACTION),
         (challenge_ts, 'challenge_ts', True, '2020-10-01T03:17:06Z'),
         (hostname, 'hostname', True, 'some_verify_host'),
-        (error_codes, 'error=codes', False, ['invalid-input-secret']),
+        (error_codes, 'error-codes', False, ['invalid-input-secret']),
     ]:
         if var is None:
             if success == present_on_success:
