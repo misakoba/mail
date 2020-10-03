@@ -201,6 +201,28 @@ def test_send_with_recaptcha_score_below_threshold_400_error(client, subtests):
             }
 
 
+def test_send_with_an_invalid_recaptcha_response_400_error(client, subtests):
+    """Test 400 error returned when reCAPTCHA response is invalid."""
+    for recaptcha_response in ['some_invalid_token', 'another_invalid_token']:
+        with subtests.test(recaptcha_response=recaptcha_response):
+            with mock.patch('requests.post', autospec=True) as mock_post:
+                mock_json = mock_post.return_value.json
+                mock_json.return_value = _a_site_verify_response_with(
+                    success=False, error_codes=['invalid-input-secret'])
+
+            response = client.post(
+                f'/send?recaptcha_response={recaptcha_response}')
+
+            assert response.status_code == http.HTTPStatus.BAD_REQUEST
+            assert response.content_type == 'application/json'
+            assert json.loads(response.data) == {
+                'code': http.HTTPStatus.BAD_REQUEST,
+                'name': 'Bad Request',
+                'description': 'The recaptcha_response parameter value '
+                               f'"{recaptcha_response}" was not valid.',
+            }
+
+
 def test_app_creation_failed_no_recaptcha_secret():
     """Test exception raised when reCAPTCHA secret is undefined."""
     with mock.patch.dict('os.environ', clear=True):

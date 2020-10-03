@@ -72,6 +72,11 @@ def create_app():
         if site_verify_response['success']:
             _check_recaptcha_action(site_verify_response['action'])
             _check_recaptcha_score(site_verify_response['score'])
+        else:
+            flask.abort(
+                http.HTTPStatus.BAD_REQUEST,
+                'The recaptcha_response parameter value '
+                f'"{flask.request.args["recaptcha_response"]}" was not valid.')
 
     def _check_recaptcha_action(action):
         if action != RECAPTCHA_DEFAULT_EXPECTED_ACTION:
