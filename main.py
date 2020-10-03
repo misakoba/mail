@@ -49,14 +49,17 @@ def create_app():
                         'Request sent without recaptcha_response parameter.')
 
     def _post_to_recaptcha_site_verify():
-        response = requests.post(
+        return requests.post(
             'https://www.google.com/recaptcha/api/siteverify',
-            params={
-                'secret': app.config['RECAPTCHA_SECRET'],
-                'response': flask.request.args['recaptcha_response'],
-                'remoteip': flask.request.remote_addr,
-            })
-        return response
+            params=_recaptcha_site_verify_params())
+
+    def _recaptcha_site_verify_params():
+        site_verify_params = {
+            'secret': app.config['RECAPTCHA_SECRET'],
+            'response': flask.request.args['recaptcha_response'],
+            'remoteip': flask.request.remote_addr,
+        }
+        return site_verify_params
 
     def _check_recaptcha_site_verify_http_status(response):
         try:
@@ -76,6 +79,11 @@ def create_app():
             _check_site_verify_response_client_only_errors(
                 site_verify_response)
 
+            app.logger.error(  # pylint: disable=no-member
+                'Non-client errors detected in with reCAPTCHA siteverify '
+                'API.\n'
+                f'request parameters: {_recaptcha_site_verify_params()}\n'
+                f'siteverify response data: {site_verify_response}')
             flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
                         'An error was encountered when validating the '
                         'reCAPTCHA response token. Please try again later.')

@@ -1,5 +1,6 @@
 """Unit tests for misakoba-mail's main module."""
 
+import collections
 import http
 import json
 from unittest import mock
@@ -11,10 +12,14 @@ import main
 
 
 @pytest.fixture(name='client')
-def test_client():
+def _a_test_client():
+    return _a_test_client_with()
+
+
+def _a_test_client_with(*, recaptcha_secret='some_secret'):
     """Creates and returns the default Flask test client fixture."""
     with mock.patch.dict('os.environ',
-                         {'RECAPTCHA_SECRET': 'some_secret'}):
+                         {'RECAPTCHA_SECRET': recaptcha_secret}):
         app = main.create_app()
     app.testing = True
     return app.test_client()
@@ -113,27 +118,22 @@ def test_send_recaptcha_request_failure_logged(client, caplog):
             'Bad request.')
         client.post('/send?recaptcha_response=my_token')
 
-    def matches_expected(record):
-        return (record.levelname == 'ERROR' and
-                record.getMessage() == 'Error in communicating with '
-                                       'reCAPTCHA server: Bad request.' and
-                record.exc_info)
-
-    assert next((record for record in caplog.records
-                 if matches_expected(record)), None)
+    error_logs = [record for record in caplog.records
+                  if record.levelname == 'ERROR']
+    assert len(error_logs) == 1
+    record = error_logs[0]
+    assert record.getMessage() == (
+        'Error in communicating with reCAPTCHA server: Bad request.')
+    assert record.exc_info
 
 
 def test_send_env_variable_recaptcha_secret(subtests):
     """Test recaptcha secret configured via environment variable."""
     for recaptcha_secret in ['secret_from_env', 'another_secret_from_env']:
         with subtests.test(recaptcha_secret=recaptcha_secret):
-            with mock.patch.dict('os.environ',
-                                 {'RECAPTCHA_SECRET': recaptcha_secret}):
-                app = main.create_app()
-            app.testing = True
-            client = app.test_client()
-
             with mock.patch('requests.post', autospec=True) as mock_post:
+                client = _a_test_client_with(
+                    recaptcha_secret=recaptcha_secret)
                 client.post('/send?recaptcha_response=some_token')
 
             mock_post.assert_called_once_with(
@@ -263,6 +263,47 @@ def test_send_site_verify_non_client_errors_returns_500_error(client):
         'description': 'An error was encountered when validating the '
                        'reCAPTCHA response token. Please try again later.',
     }
+
+
+def test_send_site_verify_non_client_errors_logged_error(subtests, caplog):
+    """Test useful data logged when site verify has non-client errors."""
+    TestInput = collections.namedtuple(
+        'TestInput',
+        'recaptcha_secret recaptcha_response remote_addr error_codes')
+    for test_input in [
+        TestInput('some_recaptcha_secret', 'some_response_token',
+                  '123.45.67.89', ['some-other-error', 'another-error']),
+        TestInput('another_recaptcha_secret', 'another_response_token',
+                  '98.76.54.32', ['invalid-input-secret',
+                                  'invalid-input-response']),
+    ]:
+        with subtests.test(**test_input._asdict()):
+            (recaptcha_secret, recaptcha_response, remote_addr,
+             error_codes) = test_input
+            caplog.clear()
+            with mock.patch('requests.post', autospec=True) as mock_post:
+                mock_json = mock_post.return_value.json
+                mock_json.return_value = _a_site_verify_response_with(
+                    success=False, error_codes=error_codes)
+
+                client = _a_test_client_with(recaptcha_secret=recaptcha_secret)
+                client.post(f'/send?recaptcha_response={recaptcha_response}',
+                            environ_base={'REMOTE_ADDR': remote_addr})
+
+        error_logs = [record for record in caplog.records
+                      if record.levelname == 'ERROR']
+        assert len(error_logs) == 1
+        record = error_logs[0]
+        assert record.getMessage() == (
+                        'Non-client errors detected in with reCAPTCHA '
+                        'siteverify API.\n'
+                        'request parameters: {'
+                        f"'secret': '{recaptcha_secret}', "
+                        f"'response': '{recaptcha_response}', "
+                        f"'remoteip': '{remote_addr}'}}\n"
+                        "siteverify response data: {'success': False, "
+                        "'error-codes': "
+                        f'{error_codes}}}')
 
 
 def test_app_creation_failed_no_recaptcha_secret():
