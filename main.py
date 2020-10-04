@@ -118,12 +118,11 @@ def create_app():
                     'reCAPTCHA response token. Please try again later.')
 
     def _recaptcha_site_verify_params():
-        site_verify_params = {
+        return {
             'secret': app.config['RECAPTCHA_SECRET'],
             'response': flask.request.args['recaptcha_response'],
             'remoteip': flask.request.remote_addr,
         }
-        return site_verify_params
 
     @app.errorhandler(werkzeug.exceptions.HTTPException)
     def handle_exception(error):  # pylint: disable=unused-variable
