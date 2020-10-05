@@ -382,6 +382,23 @@ def test_send_400_error_if_empty_email_specified(client):
     }
 
 
+def test_send_400_error_if_empty_email_is_invalid(client):
+    """Tests 400 error returned if the sender email address has no domain."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+
+        response = client.post('/send?recaptcha_response=_some_token',
+                               data=_a_message_form_with(email='foo'))
+
+    assert response.status_code == http.HTTPStatus.BAD_REQUEST
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.BAD_REQUEST,
+        'name': 'Bad Request',
+        'description': 'Email address "foo" is invalid.'
+    }
+
+
 def test_app_creation_failed_no_recaptcha_secret():
     """Test exception raised when reCAPTCHA secret is undefined."""
     with mock.patch.dict('os.environ', clear=True):

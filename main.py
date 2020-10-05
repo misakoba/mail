@@ -1,5 +1,6 @@
 """A Flask app implementing the mailing backend for misakoba.github.io."""
 
+import email.headerregistry
 import http
 import json
 import sys
@@ -23,7 +24,7 @@ class UndefinedReCAPTCHASecretError(MisakobaMailError):
     """Error for undefined reCAPTCHA secret."""
 
 
-def create_app():
+def create_app():  # pylint: disable=too-many-statements
     """Creates the Flask app."""
     # pylint: disable=too-many-locals
 
@@ -136,6 +137,17 @@ def create_app():
         for field in SEND_FORM_REQUIRED_FIELDS:
             _check_missing_send_form_field(field)
             _check_empty_form_field(field)
+
+        # NOTE: the exceptions returned by email.registry.Address are currently
+        # (as of 2020-10-05) not documented well, so we're using a catch-all
+        # exception below.
+        try:
+            addr_spec = flask.request.form['email']
+            email.headerregistry.Address(
+                addr_spec=addr_spec)
+        except Exception:  # pylint: disable=broad-except
+            flask.abort(http.HTTPStatus.BAD_REQUEST,
+                        'Email address "foo" is invalid.')
 
     def _check_missing_send_form_field(field):
         if field not in flask.request.form:
