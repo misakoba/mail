@@ -24,10 +24,13 @@ class UndefinedReCAPTCHASecretError(MisakobaMailError):
 
 def create_app():
     """Creates the Flask app."""
+    # pylint: disable=too-many-locals
+
     app = flask.Flask(__name__)
     flask_cors.CORS(app)
 
     app.config['RECAPTCHA_SECRET'] = os.environ.get('RECAPTCHA_SECRET')
+
     if not app.config['RECAPTCHA_SECRET']:
         raise UndefinedReCAPTCHASecretError(
             'Cannot create web application without RECAPTCHA_SECRET '
@@ -42,15 +45,15 @@ def create_app():
 
         return 'Successfully validated message request.'
 
-    def _validate_recaptcha_response():
-        response = _post_to_recaptcha_site_verify()
-        _check_recaptcha_site_verify_http_status(response)
-        _check_recaptcha_site_verify_response_contents(response)
-
     def _validate_send_parameters():
         if 'recaptcha_response' not in flask.request.args:
             flask.abort(http.HTTPStatus.BAD_REQUEST,
                         'Request sent without recaptcha_response parameter.')
+
+    def _validate_recaptcha_response():
+        response = _post_to_recaptcha_site_verify()
+        _check_recaptcha_site_verify_http_status(response)
+        _check_recaptcha_site_verify_response_contents(response)
 
     def _post_to_recaptcha_site_verify():
         return requests.post(
