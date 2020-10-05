@@ -349,7 +349,7 @@ def test_send_400_error_if_name_is_empty(client):
 
 
 def test_send_400_error_if_no_email_specified(client):
-    """Tests 400 error returned if form has no sender email."""
+    """Tests 400 error returned if form has no sender email address."""
     with mock.patch('requests.post', autospec=True) as mock_post:
         mock_json = mock_post.return_value.json
         mock_json.return_value = _a_site_verify_response_with(success=True)
@@ -362,6 +362,23 @@ def test_send_400_error_if_no_email_specified(client):
         'code': http.HTTPStatus.BAD_REQUEST,
         'name': 'Bad Request',
         'description': 'The posted form was missing the "email" field.'
+    }
+
+
+def test_send_400_error_if_empty_email_specified(client):
+    """Tests 400 error returned if form has an empty sender email address."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+
+        response = client.post('/send?recaptcha_response=_some_token',
+                               data={'name': 'Some Gal', 'email': ''})
+
+    assert response.status_code == http.HTTPStatus.BAD_REQUEST
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.BAD_REQUEST,
+        'name': 'Bad Request',
+        'description': 'The posted form had an empty "email" field.'
     }
 
 

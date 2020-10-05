@@ -133,16 +133,20 @@ def create_app():
         }
 
     def _validate_form():
-        form = flask.request.form
         for field in SEND_FORM_REQUIRED_FIELDS:
-            if field not in form:
-                flask.abort(
-                    http.HTTPStatus.BAD_REQUEST,
-                    f'The posted form was missing the "{field}" field.')
+            _check_missing_send_form_field(field)
+            _check_empty_form_field(field)
 
-        if form['name'] == '':
+    def _check_missing_send_form_field(field):
+        if field not in flask.request.form:
+            flask.abort(
+                http.HTTPStatus.BAD_REQUEST,
+                f'The posted form was missing the "{field}" field.')
+
+    def _check_empty_form_field(field):
+        if flask.request.form[field] == '':
             flask.abort(http.HTTPStatus.BAD_REQUEST,
-                        'The posted form had an empty "name" field.')
+                        f'The posted form had an empty "{field}" field.')
 
     @app.errorhandler(werkzeug.exceptions.HTTPException)
     def handle_exception(error):  # pylint: disable=unused-variable
