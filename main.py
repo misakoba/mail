@@ -38,10 +38,7 @@ def create_app():
         """Serves the '/send' endpoint for sending messages."""
         _validate_send_parameters()
         _validate_recaptcha_response()
-
-        if 'name' not in flask.request.form:
-            flask.abort(http.HTTPStatus.BAD_REQUEST,
-                        'The posted form was missing the "name" field.')
+        _validate_form()
 
         return 'Successfully validated message request.'
 
@@ -130,6 +127,14 @@ def create_app():
             'response': flask.request.args['recaptcha_response'],
             'remoteip': flask.request.remote_addr,
         }
+
+    def _validate_form():
+        if 'name' not in flask.request.form:
+            flask.abort(http.HTTPStatus.BAD_REQUEST,
+                        'The posted form was missing the "name" field.')
+        if flask.request.form['name'] == '':
+            flask.abort(http.HTTPStatus.BAD_REQUEST,
+                        'The posted form had an empty "name" field.')
 
     @app.errorhandler(werkzeug.exceptions.HTTPException)
     def handle_exception(error):  # pylint: disable=unused-variable

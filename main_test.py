@@ -314,7 +314,7 @@ def test_send_site_verify_non_client_errors_logged_error(subtests, caplog):
             f"'error-codes': {error_codes}}}")
 
 
-def test_send_fails_if_no_name_specified(client):
+def test_send_400_error_if_no_name_specified(client):
     """Tests 400 error returned if form has no sender name."""
     with mock.patch('requests.post', autospec=True) as mock_post:
         mock_json = mock_post.return_value.json
@@ -329,6 +329,22 @@ def test_send_fails_if_no_name_specified(client):
         'description': 'The posted form was missing the "name" field.'
     }
 
+
+def test_send_400_error_if_name_is_empty(client):
+    """Tests 400 error returned if form has an empty sender name."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+
+        response = client.post('/send?recaptcha_response=_some_token',
+                               data=_a_message_form_with(name=''))
+
+    assert response.status_code == http.HTTPStatus.BAD_REQUEST
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.BAD_REQUEST,
+        'name': 'Bad Request',
+        'description': 'The posted form had an empty "name" field.'
+    }
 
 def test_app_creation_failed_no_recaptcha_secret():
     """Test exception raised when reCAPTCHA secret is undefined."""
