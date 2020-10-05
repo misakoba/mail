@@ -346,6 +346,7 @@ def test_send_400_error_if_name_is_empty(client):
         'description': 'The posted form had an empty "name" field.'
     }
 
+
 def test_app_creation_failed_no_recaptcha_secret():
     """Test exception raised when reCAPTCHA secret is undefined."""
     with mock.patch.dict('os.environ', clear=True):
