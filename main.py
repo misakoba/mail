@@ -12,6 +12,7 @@ import requests
 
 RECAPTCHA_DEFAULT_EXPECTED_ACTION = 'submit'
 RECAPTCHA_DEFAULT_SCORE_THRESHOLD = 0.5
+SEND_FORM_REQUIRED_FIELDS = ['name', 'email']
 
 
 class MisakobaMailError(Exception):
@@ -132,10 +133,14 @@ def create_app():
         }
 
     def _validate_form():
-        if 'name' not in flask.request.form:
-            flask.abort(http.HTTPStatus.BAD_REQUEST,
-                        'The posted form was missing the "name" field.')
-        if flask.request.form['name'] == '':
+        form = flask.request.form
+        for field in SEND_FORM_REQUIRED_FIELDS:
+            if field not in form:
+                flask.abort(
+                    http.HTTPStatus.BAD_REQUEST,
+                    f'The posted form was missing the "{field}" field.')
+
+        if form['name'] == '':
             flask.abort(http.HTTPStatus.BAD_REQUEST,
                         'The posted form had an empty "name" field.')
 

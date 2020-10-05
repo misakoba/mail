@@ -320,7 +320,8 @@ def test_send_400_error_if_no_name_specified(client):
         mock_json = mock_post.return_value.json
         mock_json.return_value = _a_site_verify_response_with(success=True)
 
-        response = client.post('/send?recaptcha_response=_some_token')
+        response = client.post('/send?recaptcha_response=_some_token',
+                               data={'email': 'some.guy@somewhere.com'})
 
     assert response.status_code == http.HTTPStatus.BAD_REQUEST
     assert json.loads(response.data) == {
@@ -344,6 +345,23 @@ def test_send_400_error_if_name_is_empty(client):
         'code': http.HTTPStatus.BAD_REQUEST,
         'name': 'Bad Request',
         'description': 'The posted form had an empty "name" field.'
+    }
+
+
+def test_send_400_error_if_no_email_specified(client):
+    """Tests 400 error returned if form has no sender email."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+
+        response = client.post('/send?recaptcha_response=_some_token',
+                               data={'name': 'Some Guy'})
+
+    assert response.status_code == http.HTTPStatus.BAD_REQUEST
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.BAD_REQUEST,
+        'name': 'Bad Request',
+        'description': 'The posted form was missing the "email" field.'
     }
 
 
@@ -399,8 +417,8 @@ def _a_message_form():
     return _a_message_form_with()
 
 
-def _a_message_form_with(*, name='Foo McBar'):
-    return {'name': name}
+def _a_message_form_with(*, name='Foo McBar', email='foo.mcbar@baz.qux'):
+    return {'name': name, 'email': email}
 
 
 if __name__ == '__main__':
