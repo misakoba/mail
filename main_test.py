@@ -39,7 +39,8 @@ def test_successful_send(client, subtests):
                     success=True)
 
                 response = client.post(
-                    f'/send?recaptcha_response={recaptcha_response}')
+                    f'/send?recaptcha_response={recaptcha_response}',
+                    data=_a_message_form())
 
             mock_post.assert_called_once_with(
                 'https://www.google.com/recaptcha/api/siteverify',
@@ -58,8 +59,8 @@ def test_send_propagates_remote_ip(client, subtests):
             with mock.patch('requests.post', autospec=True) as mock_post:
                 client.post(
                     '/send?recaptcha_response=some_token',
-                    environ_base={'REMOTE_ADDR': remote_addr}
-                )
+                    data=_a_message_form(),
+                    environ_base={'REMOTE_ADDR': remote_addr})
 
             mock_post.assert_called_once_with(
                 'https://www.google.com/recaptcha/api/siteverify',
@@ -88,7 +89,8 @@ def test_send_recaptcha_request_failed(client):
         mock_raise_for_status = mock_post.return_value.raise_for_status
         mock_raise_for_status.side_effect = requests.HTTPError(
             'Bad request.')
-        response = client.post('/send?recaptcha_response=my_token')
+        response = client.post('/send?recaptcha_response=my_token',
+                               data=_a_message_form())
         mock_post.assert_called_once_with(
             'https://www.google.com/recaptcha/api/siteverify',
             params={'secret': mock.ANY,
@@ -116,7 +118,8 @@ def test_send_recaptcha_request_failure_logged(client, caplog):
         mock_raise_for_status = mock_post.return_value.raise_for_status
         mock_raise_for_status.side_effect = requests.HTTPError(
             'Bad request.')
-        client.post('/send?recaptcha_response=my_token')
+        client.post('/send?recaptcha_response=my_token',
+                    data=_a_message_form())
 
     error_logs = [record for record in caplog.records
                   if record.levelname == 'ERROR']
@@ -134,7 +137,8 @@ def test_send_env_variable_recaptcha_secret(subtests):
             with mock.patch('requests.post', autospec=True) as mock_post:
                 client = _a_test_client_with(
                     recaptcha_secret=recaptcha_secret)
-                client.post('/send?recaptcha_response=some_token')
+                client.post('/send?recaptcha_response=some_token',
+                            data=_a_message_form())
 
             mock_post.assert_called_once_with(
                 'https://www.google.com/recaptcha/api/siteverify',
@@ -146,7 +150,7 @@ def test_send_env_variable_recaptcha_secret(subtests):
 def test_send_without_recaptcha_response_returns_400_error(client):
     """Test 400 error returned when reCAPTCHA token is missing."""
     with mock.patch('requests.post', autospec=True) as mock_post:
-        response = client.post('/send')
+        response = client.post('/send', data=_a_message_form())
 
     mock_post.assert_not_called()
     assert response.status_code == http.HTTPStatus.BAD_REQUEST
@@ -167,7 +171,8 @@ def test_send_with_unexpected_action_returns_400_error(client, subtests):
                 mock_json.return_value = _a_site_verify_response_with(
                     success=True, action=action)
 
-                response = client.post('/send?recaptcha_response=some_token')
+                response = client.post('/send?recaptcha_response=some_token',
+                                       data=_a_message_form())
 
             assert response.status_code == http.HTTPStatus.BAD_REQUEST
             assert response.content_type == 'application/json'
@@ -188,7 +193,8 @@ def test_send_with_recaptcha_score_below_threshold_400_error(client, subtests):
                 mock_json = mock_post.return_value.json
                 mock_json.return_value = _a_site_verify_response_with(
                     success=True, score=score)
-                response = client.post('/send?recaptcha_response=some_token')
+                response = client.post('/send?recaptcha_response=some_token',
+                                       data=_a_message_form())
 
             assert response.status_code == http.HTTPStatus.BAD_REQUEST
             assert response.content_type == 'application/json'
@@ -210,7 +216,8 @@ def test_send_with_an_invalid_recaptcha_response_400_error(client, subtests):
                     success=False, error_codes=['invalid-input-response'])
 
                 response = client.post(
-                    f'/send?recaptcha_response={recaptcha_response}')
+                    f'/send?recaptcha_response={recaptcha_response}',
+                    data=_a_message_form())
 
             assert response.status_code == http.HTTPStatus.BAD_REQUEST
             assert response.content_type == 'application/json'
@@ -233,7 +240,8 @@ def test_send_with_stale_or_duplicate_recaptcha_response_400_error(
                     success=False, error_codes=['timeout-or-duplicate'])
 
                 response = client.post(
-                    f'/send?recaptcha_response={recaptcha_response}')
+                    f'/send?recaptcha_response={recaptcha_response}',
+                    data=_a_message_form())
 
             assert response.status_code == http.HTTPStatus.BAD_REQUEST
             assert response.content_type == 'application/json'
@@ -253,7 +261,8 @@ def test_send_site_verify_non_client_errors_returns_500_error(client):
         mock_json.return_value = _a_site_verify_response_with(
             success=False, error_codes=['some-other-error', 'another-error'])
 
-        response = client.post('/send?recaptcha_response=some_response_token')
+        response = client.post('/send?recaptcha_response=some_response_token',
+                               data=_a_message_form())
 
     assert response.status_code == http.HTTPStatus.INTERNAL_SERVER_ERROR
     assert response.content_type == 'application/json'
@@ -288,6 +297,7 @@ def test_send_site_verify_non_client_errors_logged_error(subtests, caplog):
 
                 client = _a_test_client_with(recaptcha_secret=recaptcha_secret)
                 client.post(f'/send?recaptcha_response={recaptcha_response}',
+                            data=_a_message_form(),
                             environ_base={'REMOTE_ADDR': remote_addr})
 
         error_logs = [record for record in caplog.records
@@ -302,6 +312,22 @@ def test_send_site_verify_non_client_errors_logged_error(subtests, caplog):
             f"'remoteip': '{remote_addr}'}}\n"
             "siteverify response data: {'success': False, "
             f"'error-codes': {error_codes}}}")
+
+
+def test_send_fails_if_no_name_specified(client):
+    """Tests 400 error returned if form has no sender name."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+
+        response = client.post('/send?recaptcha_response=_some_token')
+
+    assert response.status_code == http.HTTPStatus.BAD_REQUEST
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.BAD_REQUEST,
+        'name': 'Bad Request',
+        'description': 'The posted form was missing the "name" field.'
+    }
 
 
 def test_app_creation_failed_no_recaptcha_secret():
@@ -350,6 +376,14 @@ def _a_site_verify_response_with(
             response[attribute] = var
 
     return response
+
+
+def _a_message_form():
+    return _a_message_form_with()
+
+
+def _a_message_form_with(*, name='Foo McBar'):
+    return {'name': name}
 
 
 if __name__ == '__main__':

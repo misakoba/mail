@@ -37,11 +37,18 @@ def create_app():
     def send():  # pylint: disable=unused-variable
         """Serves the '/send' endpoint for sending messages."""
         _validate_send_parameters()
+        _validate_recaptcha_response()
+
+        if 'name' not in flask.request.form:
+            flask.abort(http.HTTPStatus.BAD_REQUEST,
+                        'The posted form was missing the "name" field.')
+
+        return 'Successfully validated message request.'
+
+    def _validate_recaptcha_response():
         response = _post_to_recaptcha_site_verify()
         _check_recaptcha_site_verify_http_status(response)
         _check_recaptcha_site_verify_response_contents(response)
-
-        return 'Successfully validated message request.'
 
     def _validate_send_parameters():
         if 'recaptcha_response' not in flask.request.args:
