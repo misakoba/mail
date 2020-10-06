@@ -321,7 +321,7 @@ def test_send_400_error_if_no_name_specified(client):
         mock_json.return_value = _a_site_verify_response_with(success=True)
 
         response = client.post('/send?recaptcha_response=_some_token',
-                               data={'email': 'some.guy@somewhere.com'})
+                               data=_a_message_form_without('name'))
 
     assert response.status_code == http.HTTPStatus.BAD_REQUEST
     assert json.loads(response.data) == {
@@ -355,7 +355,7 @@ def test_send_400_error_if_no_email_specified(client):
         mock_json.return_value = _a_site_verify_response_with(success=True)
 
         response = client.post('/send?recaptcha_response=_some_token',
-                               data={'name': 'Some Guy'})
+                               data=_a_message_form_without('email'))
 
     assert response.status_code == http.HTTPStatus.BAD_REQUEST
     assert json.loads(response.data) == {
@@ -445,6 +445,11 @@ def _a_site_verify_response_with(
             response[attribute] = var
 
     return response
+
+
+def _a_message_form_without(*excluded_fields):
+    return {field: value for field, value in _a_message_form().items()
+            if field not in excluded_fields}
 
 
 def _a_message_form():
