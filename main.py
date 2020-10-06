@@ -13,7 +13,7 @@ import requests
 
 RECAPTCHA_DEFAULT_EXPECTED_ACTION = 'submit'
 RECAPTCHA_DEFAULT_SCORE_THRESHOLD = 0.5
-SEND_FORM_REQUIRED_FIELDS = ['name', 'email']
+SEND_FORM_REQUIRED_FIELDS = ['name', 'email', 'message']
 
 
 class MisakobaMailError(Exception):

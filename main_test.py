@@ -372,7 +372,7 @@ def test_send_400_error_if_empty_email_specified(client):
         mock_json.return_value = _a_site_verify_response_with(success=True)
 
         response = client.post('/send?recaptcha_response=_some_token',
-                               data={'name': 'Some Gal', 'email': ''})
+                               data=_a_message_form_with(email=''))
 
     assert response.status_code == http.HTTPStatus.BAD_REQUEST
     assert json.loads(response.data) == {
@@ -408,6 +408,40 @@ def test_send_400_error_if_empty_email_is_invalid(client, subtests):
                 'name': 'Bad Request',
                 'description': f'Email address "{email}" is invalid.'
             }
+
+
+def test_send_400_error_if_no_message_specified(client):
+    """Tests 400 error returned if form has no sender email address."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+
+        response = client.post('/send?recaptcha_response=_some_token',
+                               data=_a_message_form_without('message'))
+
+    assert response.status_code == http.HTTPStatus.BAD_REQUEST
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.BAD_REQUEST,
+        'name': 'Bad Request',
+        'description': 'The posted form was missing the "message" field.'
+    }
+
+
+def test_send_400_error_if_empty_message_specified(client):
+    """Tests 400 error returned if form has an empty message."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+
+        response = client.post('/send?recaptcha_response=_some_token',
+                               data=_a_message_form_with(message=''))
+
+    assert response.status_code == http.HTTPStatus.BAD_REQUEST
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.BAD_REQUEST,
+        'name': 'Bad Request',
+        'description': 'The posted form had an empty "message" field.'
+    }
 
 
 def test_app_creation_failed_no_recaptcha_secret():
@@ -467,8 +501,14 @@ def _a_message_form():
     return _a_message_form_with()
 
 
-def _a_message_form_with(*, name='Foo McBar', email='foo.mcbar@baz.qux'):
-    return {'name': name, 'email': email}
+def _a_message_form_with(
+        *,
+        name='Foo McBar',
+        email='foo.mcbar@baz.qux',
+        message='Hey there, I think we should talk.\nAre you aware of the '
+                'many uses essential oils can bring to your everyday'
+                'well-being? Well, let me tell you...'):
+    return {'name': name, 'email': email, 'message': message}
 
 
 if __name__ == '__main__':
