@@ -382,21 +382,32 @@ def test_send_400_error_if_empty_email_specified(client):
     }
 
 
-def test_send_400_error_if_empty_email_is_invalid(client):
+def test_send_400_error_if_empty_email_is_invalid(client, subtests):
     """Tests 400 error returned if the sender email address has no domain."""
-    with mock.patch('requests.post', autospec=True) as mock_post:
-        mock_json = mock_post.return_value.json
-        mock_json.return_value = _a_site_verify_response_with(success=True)
+    invalid_addresses = [
+        'foo',  # No domain
+        'foo@',  # Empty domain
+        'foo@.bar',  # Bad domain delimiter
+        'foo@.bar.',  # Bad domain delimiters
+        'foo@bar.',  # Bad domain delimiters
+        'foo@bar,baz',  # Unexpected comma
+    ]
+    for email in invalid_addresses:
+        with subtests.test(email=email):
+            with mock.patch('requests.post', autospec=True) as mock_post:
+                mock_json = mock_post.return_value.json
+                mock_json.return_value = _a_site_verify_response_with(
+                    success=True)
 
-        response = client.post('/send?recaptcha_response=_some_token',
-                               data=_a_message_form_with(email='foo'))
+                response = client.post('/send?recaptcha_response=_some_token',
+                                       data=_a_message_form_with(email=email))
 
-    assert response.status_code == http.HTTPStatus.BAD_REQUEST
-    assert json.loads(response.data) == {
-        'code': http.HTTPStatus.BAD_REQUEST,
-        'name': 'Bad Request',
-        'description': 'Email address "foo" is invalid.'
-    }
+            assert response.status_code == http.HTTPStatus.BAD_REQUEST
+            assert json.loads(response.data) == {
+                'code': http.HTTPStatus.BAD_REQUEST,
+                'name': 'Bad Request',
+                'description': f'Email address "{email}" is invalid.'
+            }
 
 
 def test_app_creation_failed_no_recaptcha_secret():

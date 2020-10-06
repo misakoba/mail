@@ -141,13 +141,12 @@ def create_app():  # pylint: disable=too-many-statements
         # NOTE: the exceptions returned by email.registry.Address are currently
         # (as of 2020-10-05) not documented well, so we're using a catch-all
         # exception below.
+        addr_spec = flask.request.form['email']
         try:
-            addr_spec = flask.request.form['email']
-            email.headerregistry.Address(
-                addr_spec=addr_spec)
+            email.headerregistry.Address(addr_spec=addr_spec)
         except Exception:  # pylint: disable=broad-except
             flask.abort(http.HTTPStatus.BAD_REQUEST,
-                        'Email address "foo" is invalid.')
+                        f'Email address "{addr_spec}" is invalid.')
 
     def _check_missing_send_form_field(field):
         if field not in flask.request.form:
