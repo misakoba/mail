@@ -13,15 +13,16 @@ import requests
 
 RECAPTCHA_DEFAULT_EXPECTED_ACTION = 'submit'
 RECAPTCHA_DEFAULT_SCORE_THRESHOLD = 0.5
-SEND_FORM_REQUIRED_FIELDS = ['name', 'email', 'message']
+SEND_FORM_REQUIRED_FIELDS = {'name', 'email', 'message'}
+REQUIRED_CONFIG_VALUES = {'RECAPTCHA_SECRET', 'MAILGUN_API_KEY'}
 
 
 class MisakobaMailError(Exception):
     """Base class for application-specific errors."""
 
 
-class UndefinedReCAPTCHASecretError(MisakobaMailError):
-    """Error for undefined reCAPTCHA secret."""
+class MissingRequiredConfigValueError(MisakobaMailError):
+    """Error for MissingConfigValue."""
 
 
 def create_app():  # pylint: disable=too-many-statements
@@ -31,12 +32,9 @@ def create_app():  # pylint: disable=too-many-statements
     app = flask.Flask(__name__)
     flask_cors.CORS(app)
 
-    app.config['RECAPTCHA_SECRET'] = os.environ.get('RECAPTCHA_SECRET')
-
-    if not app.config['RECAPTCHA_SECRET']:
-        raise UndefinedReCAPTCHASecretError(
-            'Cannot create web application without RECAPTCHA_SECRET '
-            'configuration value.')
+    config = app.config
+    _populate_config_from_environment(config)
+    _check_for_required_config_values(config)
 
     @app.route('/send', methods=['POST'])
     def send():  # pylint: disable=unused-variable
@@ -128,7 +126,7 @@ def create_app():  # pylint: disable=too-many-statements
 
     def _recaptcha_site_verify_params():
         return {
-            'secret': app.config['RECAPTCHA_SECRET'],
+            'secret': config['RECAPTCHA_SECRET'],
             'response': flask.request.args['recaptcha_response'],
             'remoteip': flask.request.remote_addr,
         }
@@ -138,7 +136,7 @@ def create_app():  # pylint: disable=too-many-statements
             _check_missing_send_form_field(field)
             _check_empty_form_field(field)
 
-        # NOTE: the exceptions returned by email.registry.Address are currently
+        # NOTE: The exceptions returned by email.registry.Address are currently
         # (as of 2020-10-05) not documented well, so we're using a catch-all
         # exception below.
         addr_spec = flask.request.form['email']
@@ -172,6 +170,19 @@ def create_app():  # pylint: disable=too-many-statements
         return response
 
     return app
+
+
+def _check_for_required_config_values(config):
+    for config_value_name in REQUIRED_CONFIG_VALUES:
+        if not config[config_value_name]:
+            raise MissingRequiredConfigValueError(
+                f'Cannot create web application without {config_value_name} '
+                'configuration value.')
+
+
+def _populate_config_from_environment(config):
+    for config_value_name in REQUIRED_CONFIG_VALUES:
+        config[config_value_name] = os.environ.get(config_value_name)
 
 
 def create_app_or_die():

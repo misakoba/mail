@@ -16,10 +16,12 @@ def _a_test_client():
     return _a_test_client_with()
 
 
-def _a_test_client_with(*, recaptcha_secret='some_secret'):
+def _a_test_client_with(*, environment=None):
     """Creates and returns the default Flask test client fixture."""
-    with mock.patch.dict('os.environ',
-                         {'RECAPTCHA_SECRET': recaptcha_secret}):
+    if environment is None:
+        environment = _an_environment()
+
+    with mock.patch.dict('os.environ', environment):
         app = main.create_app()
     app.testing = True
     return app.test_client()
@@ -136,7 +138,8 @@ def test_send_env_variable_recaptcha_secret(subtests):
         with subtests.test(recaptcha_secret=recaptcha_secret):
             with mock.patch('requests.post', autospec=True) as mock_post:
                 client = _a_test_client_with(
-                    recaptcha_secret=recaptcha_secret)
+                    environment=_an_environment_with(
+                        recaptcha_secret=recaptcha_secret))
                 client.post('/send?recaptcha_response=some_token',
                             data=_a_message_form())
 
@@ -295,7 +298,9 @@ def test_send_site_verify_non_client_errors_logged_error(subtests, caplog):
                 mock_json.return_value = _a_site_verify_response_with(
                     success=False, error_codes=error_codes)
 
-                client = _a_test_client_with(recaptcha_secret=recaptcha_secret)
+                client = _a_test_client_with(
+                    environment=_an_environment_with(
+                        recaptcha_secret=recaptcha_secret))
                 client.post(f'/send?recaptcha_response={recaptcha_response}',
                             data=_a_message_form(),
                             environ_base={'REMOTE_ADDR': remote_addr})
@@ -446,18 +451,35 @@ def test_send_400_error_if_empty_message_specified(client):
 
 def test_app_creation_failed_no_recaptcha_secret():
     """Test exception raised when reCAPTCHA secret is undefined."""
-    with mock.patch.dict('os.environ', clear=True):
+    with mock.patch.dict('os.environ',
+                         _an_environment_without('RECAPTCHA_SECRET'),
+                         clear=True):
         with pytest.raises(
-                main.UndefinedReCAPTCHASecretError,
+                main.MissingRequiredConfigValueError,
                 match=(
                 'Cannot create web application without RECAPTCHA_SECRET '
                 'configuration value.')):
             main.create_app()
 
 
+def test_app_creation_failed_no_mailgun_api_key():
+    """Test exception raised when MailGun API Key is undefined."""
+    with mock.patch.dict('os.environ',
+                         _an_environment_without('MAILGUN_API_KEY'),
+                         clear=True):
+        with pytest.raises(
+                main.MissingRequiredConfigValueError,
+                match=(
+                'Cannot create web application without MAILGUN_API_KEY '
+                'configuration value.')):
+            main.create_app()
+
+
 def test_create_app_or_die_graceful_death_on_creation_failure():
     """Test that a SystemExit is raised on failure create to main app."""
-    with mock.patch.dict('os.environ', clear=True):
+    with mock.patch.dict('os.environ',
+                         _an_environment_without('RECAPTCHA_SECRET'),
+                         clear=True):
         with pytest.raises(
                 SystemExit,
                 match=(
@@ -509,6 +531,25 @@ def _a_message_form_with(
                 'many uses essential oils can bring to your everyday'
                 'well-being? Well, let me tell you...'):
     return {'name': name, 'email': email, 'message': message}
+
+
+def _an_environment_without(*excluded_variables):
+    excluded_variables = set(var.upper() for var in excluded_variables)
+    return {variable: value for variable, value in _an_environment().items()
+            if variable not in excluded_variables}
+
+
+def _an_environment():
+    return _an_environment_with()
+
+
+def _an_environment_with(*,
+                         recaptcha_secret='some_secret',
+                         mailgun_api_key='some_mailgun_api_key'):
+    return {
+        'RECAPTCHA_SECRET': recaptcha_secret,
+        'MAILGUN_API_KEY': mailgun_api_key
+    }
 
 
 if __name__ == '__main__':
