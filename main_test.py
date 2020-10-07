@@ -463,7 +463,7 @@ def test_app_creation_failed_no_recaptcha_secret():
 
 
 def test_app_creation_failed_no_mailgun_api_key():
-    """Test exception raised when MailGun API Key is undefined."""
+    """Test exception raised when Mailgun API Key is undefined."""
     with mock.patch.dict('os.environ',
                          _an_environment_without('MAILGUN_API_KEY'),
                          clear=True):
@@ -471,6 +471,19 @@ def test_app_creation_failed_no_mailgun_api_key():
                 main.MissingRequiredConfigValueError,
                 match=(
                 'Cannot create web application without MAILGUN_API_KEY '
+                'configuration value.')):
+            main.create_app()
+
+
+def test_app_creation_failed_no_mailgun_domain():
+    """Test exception raised when Mailgun Domain is undefined."""
+    with mock.patch.dict('os.environ',
+                         _an_environment_without('MAILGUN_DOMAIN'),
+                         clear=True):
+        with pytest.raises(
+                main.MissingRequiredConfigValueError,
+                match=(
+                'Cannot create web application without MAILGUN_DOMAIN '
                 'configuration value.')):
             main.create_app()
 
@@ -545,10 +558,12 @@ def _an_environment():
 
 def _an_environment_with(*,
                          recaptcha_secret='some_secret',
-                         mailgun_api_key='some_mailgun_api_key'):
+                         mailgun_api_key='some_mailgun_api_key',
+                         mailgun_domain='some_mailgun_domain'):
     return {
         'RECAPTCHA_SECRET': recaptcha_secret,
-        'MAILGUN_API_KEY': mailgun_api_key
+        'MAILGUN_API_KEY': mailgun_api_key,
+        'MAILGUN_DOMAIN': mailgun_domain
     }
 
 
