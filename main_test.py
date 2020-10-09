@@ -41,8 +41,9 @@ def test_successful_send(client, subtests):
                     success=True)
 
                 response = client.post(
-                    f'/send?recaptcha_response={recaptcha_response}',
-                    data=_a_message_form())
+                    '/send',
+                    data=_a_message_form_with(
+                        g_recaptcha_response=recaptcha_response))
 
             mock_post.assert_called_once_with(
                 'https://www.google.com/recaptcha/api/siteverify',
@@ -59,15 +60,13 @@ def test_send_propagates_remote_ip(client, subtests):
     for remote_addr in ['123.45.67.89', '98.76.54.123']:
         with subtests.test(remote_addr=remote_addr):
             with mock.patch('requests.post', autospec=True) as mock_post:
-                client.post(
-                    '/send?recaptcha_response=some_token',
-                    data=_a_message_form(),
-                    environ_base={'REMOTE_ADDR': remote_addr})
+                client.post('/send', data=_a_message_form(),
+                            environ_base={'REMOTE_ADDR': remote_addr})
 
             mock_post.assert_called_once_with(
                 'https://www.google.com/recaptcha/api/siteverify',
                 params={'secret': mock.ANY,
-                        'response': 'some_token',
+                        'response': mock.ANY,
                         'remoteip': remote_addr,
                         })
 
@@ -78,6 +77,174 @@ def test_send_wrong_method(client):
 
     assert response.status_code == http.HTTPStatus.METHOD_NOT_ALLOWED
     assert response.content_type == 'application/json'
+
+
+def test_send_400_error_if_no_g_recaptcha_response_specified(client):
+    """Tests 400 error returned if form has no reCAPTCHA response."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+
+        response = client.post(
+            '/send',
+            data=_a_message_form_without('g-recaptcha-response'))
+
+    assert response.status_code == http.HTTPStatus.BAD_REQUEST
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.BAD_REQUEST,
+        'name': 'Bad Request',
+        'description': 'The posted form was missing the '
+                       '"g-recaptcha-response" field.',
+    }
+
+
+def test_send_400_error_if_g_recaptcha_response_is_empty(client):
+    """Tests 400 error returned if form has an empty g-recaptcha-response."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+
+        response = client.post(
+            '/send',
+            data=_a_message_form_with(g_recaptcha_response=''))
+
+    assert response.status_code == http.HTTPStatus.BAD_REQUEST
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.BAD_REQUEST,
+        'name': 'Bad Request',
+        'description': 'The posted form had an empty "g-recaptcha-response" '
+                       'field.'
+    }
+
+
+def test_send_400_error_if_no_name_specified(client):
+    """Tests 400 error returned if form has no sender name."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+
+        response = client.post('/send',
+                               data=_a_message_form_without('name'))
+
+    assert response.status_code == http.HTTPStatus.BAD_REQUEST
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.BAD_REQUEST,
+        'name': 'Bad Request',
+        'description': 'The posted form was missing the "name" field.'
+    }
+
+
+def test_send_400_error_if_name_is_empty(client):
+    """Tests 400 error returned if form has an empty sender name."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+
+        response = client.post('/send',
+                               data=_a_message_form_with(name=''))
+
+    assert response.status_code == http.HTTPStatus.BAD_REQUEST
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.BAD_REQUEST,
+        'name': 'Bad Request',
+        'description': 'The posted form had an empty "name" field.'
+    }
+
+
+def test_send_400_error_if_no_email_specified(client):
+    """Tests 400 error returned if form has no sender email address."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+
+        response = client.post('/send',
+                               data=_a_message_form_without('email'))
+
+    assert response.status_code == http.HTTPStatus.BAD_REQUEST
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.BAD_REQUEST,
+        'name': 'Bad Request',
+        'description': 'The posted form was missing the "email" field.'
+    }
+
+
+def test_send_400_error_if_empty_email_specified(client):
+    """Tests 400 error returned if form has an empty sender email address."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+
+        response = client.post('/send',
+                               data=_a_message_form_with(email=''))
+
+    assert response.status_code == http.HTTPStatus.BAD_REQUEST
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.BAD_REQUEST,
+        'name': 'Bad Request',
+        'description': 'The posted form had an empty "email" field.'
+    }
+
+
+def test_send_400_error_if_empty_email_is_invalid(client, subtests):
+    """Tests 400 error returned if the sender email address has no domain."""
+    invalid_addresses = [
+        'foo',  # No domain
+        'foo@',  # Empty domain
+        'foo@.bar',  # Bad domain delimiter
+        'foo@.bar.',  # Bad domain delimiters
+        'foo@bar.',  # Bad domain delimiters
+        'foo@bar,baz',  # Unexpected comma
+    ]
+    for email in invalid_addresses:
+        with subtests.test(email=email):
+            with mock.patch('requests.post', autospec=True) as mock_post:
+                mock_json = mock_post.return_value.json
+                mock_json.return_value = _a_site_verify_response_with(
+                    success=True)
+
+                response = client.post('/send',
+                                       data=_a_message_form_with(email=email))
+
+            assert response.status_code == http.HTTPStatus.BAD_REQUEST
+            assert json.loads(response.data) == {
+                'code': http.HTTPStatus.BAD_REQUEST,
+                'name': 'Bad Request',
+                'description': f'Email address "{email}" is invalid.'
+            }
+
+
+def test_send_400_error_if_no_message_specified(client):
+    """Tests 400 error returned if form has no sender email address."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+
+        response = client.post('/send',
+                               data=_a_message_form_without('message'))
+
+    assert response.status_code == http.HTTPStatus.BAD_REQUEST
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.BAD_REQUEST,
+        'name': 'Bad Request',
+        'description': 'The posted form was missing the "message" field.'
+    }
+
+
+def test_send_400_error_if_empty_message_specified(client):
+    """Tests 400 error returned if form has an empty message."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+
+        response = client.post('/send',
+                               data=_a_message_form_with(message=''))
+
+    assert response.status_code == http.HTTPStatus.BAD_REQUEST
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.BAD_REQUEST,
+        'name': 'Bad Request',
+        'description': 'The posted form had an empty "message" field.'
+    }
 
 
 def test_send_recaptcha_request_failed(client):
@@ -91,12 +258,12 @@ def test_send_recaptcha_request_failed(client):
         mock_raise_for_status = mock_post.return_value.raise_for_status
         mock_raise_for_status.side_effect = requests.HTTPError(
             'Bad request.')
-        response = client.post('/send?recaptcha_response=my_token',
+        response = client.post('/send',
                                data=_a_message_form())
         mock_post.assert_called_once_with(
             'https://www.google.com/recaptcha/api/siteverify',
             params={'secret': mock.ANY,
-                    'response': 'my_token',
+                    'response': mock.ANY,
                     'remoteip': mock.ANY})
 
         assert (response.status_code ==
@@ -120,7 +287,7 @@ def test_send_recaptcha_request_failure_logged(client, caplog):
         mock_raise_for_status = mock_post.return_value.raise_for_status
         mock_raise_for_status.side_effect = requests.HTTPError(
             'Bad request.')
-        client.post('/send?recaptcha_response=my_token',
+        client.post('/send',
                     data=_a_message_form())
 
     error_logs = [record for record in caplog.records
@@ -140,29 +307,14 @@ def test_send_env_variable_recaptcha_secret(subtests):
                 client = _a_test_client_with(
                     environment=_an_environment_with(
                         recaptcha_secret=recaptcha_secret))
-                client.post('/send?recaptcha_response=some_token',
+                client.post('/send',
                             data=_a_message_form())
 
             mock_post.assert_called_once_with(
                 'https://www.google.com/recaptcha/api/siteverify',
                 params={'secret': recaptcha_secret,
-                        'response': 'some_token',
+                        'response': mock.ANY,
                         'remoteip': mock.ANY})
-
-
-def test_send_without_recaptcha_response_returns_400_error(client):
-    """Test 400 error returned when reCAPTCHA token is missing."""
-    with mock.patch('requests.post', autospec=True) as mock_post:
-        response = client.post('/send', data=_a_message_form())
-
-    mock_post.assert_not_called()
-    assert response.status_code == http.HTTPStatus.BAD_REQUEST
-    assert response.content_type == 'application/json'
-    assert json.loads(response.data) == {
-        'code': http.HTTPStatus.BAD_REQUEST,
-        'name': 'Bad Request',
-        'description': 'Request sent without recaptcha_response parameter.'
-    }
 
 
 def test_send_with_unexpected_action_returns_400_error(client, subtests):
@@ -174,7 +326,7 @@ def test_send_with_unexpected_action_returns_400_error(client, subtests):
                 mock_json.return_value = _a_site_verify_response_with(
                     success=True, action=action)
 
-                response = client.post('/send?recaptcha_response=some_token',
+                response = client.post('/send',
                                        data=_a_message_form())
 
             assert response.status_code == http.HTTPStatus.BAD_REQUEST
@@ -196,7 +348,7 @@ def test_send_with_recaptcha_score_below_threshold_400_error(client, subtests):
                 mock_json = mock_post.return_value.json
                 mock_json.return_value = _a_site_verify_response_with(
                     success=True, score=score)
-                response = client.post('/send?recaptcha_response=some_token',
+                response = client.post('/send',
                                        data=_a_message_form())
 
             assert response.status_code == http.HTTPStatus.BAD_REQUEST
@@ -219,8 +371,9 @@ def test_send_with_an_invalid_recaptcha_response_400_error(client, subtests):
                     success=False, error_codes=['invalid-input-response'])
 
                 response = client.post(
-                    f'/send?recaptcha_response={recaptcha_response}',
-                    data=_a_message_form())
+                    '/send',
+                    data=_a_message_form_with(
+                        g_recaptcha_response=recaptcha_response))
 
             assert response.status_code == http.HTTPStatus.BAD_REQUEST
             assert response.content_type == 'application/json'
@@ -243,8 +396,9 @@ def test_send_with_stale_or_duplicate_recaptcha_response_400_error(
                     success=False, error_codes=['timeout-or-duplicate'])
 
                 response = client.post(
-                    f'/send?recaptcha_response={recaptcha_response}',
-                    data=_a_message_form())
+                    '/send',
+                    data=_a_message_form_with(
+                        g_recaptcha_response=recaptcha_response))
 
             assert response.status_code == http.HTTPStatus.BAD_REQUEST
             assert response.content_type == 'application/json'
@@ -264,7 +418,7 @@ def test_send_site_verify_non_client_errors_returns_500_error(client):
         mock_json.return_value = _a_site_verify_response_with(
             success=False, error_codes=['some-other-error', 'another-error'])
 
-        response = client.post('/send?recaptcha_response=some_response_token',
+        response = client.post('/send',
                                data=_a_message_form())
 
     assert response.status_code == http.HTTPStatus.INTERNAL_SERVER_ERROR
@@ -301,8 +455,9 @@ def test_send_site_verify_non_client_errors_logged_error(subtests, caplog):
                 client = _a_test_client_with(
                     environment=_an_environment_with(
                         recaptcha_secret=recaptcha_secret))
-                client.post(f'/send?recaptcha_response={recaptcha_response}',
-                            data=_a_message_form(),
+                client.post('/send',
+                            data=_a_message_form_with(
+                                g_recaptcha_response=recaptcha_response),
                             environ_base={'REMOTE_ADDR': remote_addr})
 
         error_logs = [record for record in caplog.records
@@ -317,136 +472,6 @@ def test_send_site_verify_non_client_errors_logged_error(subtests, caplog):
             f"'remoteip': '{remote_addr}'}}\n"
             "siteverify response data: {'success': False, "
             f"'error-codes': {error_codes}}}")
-
-
-def test_send_400_error_if_no_name_specified(client):
-    """Tests 400 error returned if form has no sender name."""
-    with mock.patch('requests.post', autospec=True) as mock_post:
-        mock_json = mock_post.return_value.json
-        mock_json.return_value = _a_site_verify_response_with(success=True)
-
-        response = client.post('/send?recaptcha_response=_some_token',
-                               data=_a_message_form_without('name'))
-
-    assert response.status_code == http.HTTPStatus.BAD_REQUEST
-    assert json.loads(response.data) == {
-        'code': http.HTTPStatus.BAD_REQUEST,
-        'name': 'Bad Request',
-        'description': 'The posted form was missing the "name" field.'
-    }
-
-
-def test_send_400_error_if_name_is_empty(client):
-    """Tests 400 error returned if form has an empty sender name."""
-    with mock.patch('requests.post', autospec=True) as mock_post:
-        mock_json = mock_post.return_value.json
-        mock_json.return_value = _a_site_verify_response_with(success=True)
-
-        response = client.post('/send?recaptcha_response=_some_token',
-                               data=_a_message_form_with(name=''))
-
-    assert response.status_code == http.HTTPStatus.BAD_REQUEST
-    assert json.loads(response.data) == {
-        'code': http.HTTPStatus.BAD_REQUEST,
-        'name': 'Bad Request',
-        'description': 'The posted form had an empty "name" field.'
-    }
-
-
-def test_send_400_error_if_no_email_specified(client):
-    """Tests 400 error returned if form has no sender email address."""
-    with mock.patch('requests.post', autospec=True) as mock_post:
-        mock_json = mock_post.return_value.json
-        mock_json.return_value = _a_site_verify_response_with(success=True)
-
-        response = client.post('/send?recaptcha_response=_some_token',
-                               data=_a_message_form_without('email'))
-
-    assert response.status_code == http.HTTPStatus.BAD_REQUEST
-    assert json.loads(response.data) == {
-        'code': http.HTTPStatus.BAD_REQUEST,
-        'name': 'Bad Request',
-        'description': 'The posted form was missing the "email" field.'
-    }
-
-
-def test_send_400_error_if_empty_email_specified(client):
-    """Tests 400 error returned if form has an empty sender email address."""
-    with mock.patch('requests.post', autospec=True) as mock_post:
-        mock_json = mock_post.return_value.json
-        mock_json.return_value = _a_site_verify_response_with(success=True)
-
-        response = client.post('/send?recaptcha_response=_some_token',
-                               data=_a_message_form_with(email=''))
-
-    assert response.status_code == http.HTTPStatus.BAD_REQUEST
-    assert json.loads(response.data) == {
-        'code': http.HTTPStatus.BAD_REQUEST,
-        'name': 'Bad Request',
-        'description': 'The posted form had an empty "email" field.'
-    }
-
-
-def test_send_400_error_if_empty_email_is_invalid(client, subtests):
-    """Tests 400 error returned if the sender email address has no domain."""
-    invalid_addresses = [
-        'foo',  # No domain
-        'foo@',  # Empty domain
-        'foo@.bar',  # Bad domain delimiter
-        'foo@.bar.',  # Bad domain delimiters
-        'foo@bar.',  # Bad domain delimiters
-        'foo@bar,baz',  # Unexpected comma
-    ]
-    for email in invalid_addresses:
-        with subtests.test(email=email):
-            with mock.patch('requests.post', autospec=True) as mock_post:
-                mock_json = mock_post.return_value.json
-                mock_json.return_value = _a_site_verify_response_with(
-                    success=True)
-
-                response = client.post('/send?recaptcha_response=_some_token',
-                                       data=_a_message_form_with(email=email))
-
-            assert response.status_code == http.HTTPStatus.BAD_REQUEST
-            assert json.loads(response.data) == {
-                'code': http.HTTPStatus.BAD_REQUEST,
-                'name': 'Bad Request',
-                'description': f'Email address "{email}" is invalid.'
-            }
-
-
-def test_send_400_error_if_no_message_specified(client):
-    """Tests 400 error returned if form has no sender email address."""
-    with mock.patch('requests.post', autospec=True) as mock_post:
-        mock_json = mock_post.return_value.json
-        mock_json.return_value = _a_site_verify_response_with(success=True)
-
-        response = client.post('/send?recaptcha_response=_some_token',
-                               data=_a_message_form_without('message'))
-
-    assert response.status_code == http.HTTPStatus.BAD_REQUEST
-    assert json.loads(response.data) == {
-        'code': http.HTTPStatus.BAD_REQUEST,
-        'name': 'Bad Request',
-        'description': 'The posted form was missing the "message" field.'
-    }
-
-
-def test_send_400_error_if_empty_message_specified(client):
-    """Tests 400 error returned if form has an empty message."""
-    with mock.patch('requests.post', autospec=True) as mock_post:
-        mock_json = mock_post.return_value.json
-        mock_json.return_value = _a_site_verify_response_with(success=True)
-
-        response = client.post('/send?recaptcha_response=_some_token',
-                               data=_a_message_form_with(message=''))
-
-    assert response.status_code == http.HTTPStatus.BAD_REQUEST
-    assert json.loads(response.data) == {
-        'code': http.HTTPStatus.BAD_REQUEST,
-        'name': 'Bad Request',
-        'description': 'The posted form had an empty "message" field.'
-    }
 
 
 def test_app_creation_failed_no_recaptcha_secret():
@@ -538,12 +563,18 @@ def _a_message_form():
 
 def _a_message_form_with(
         *,
+        g_recaptcha_response='some_response_token',
         name='Foo McBar',
         email='foo.mcbar@baz.qux',
         message='Hey there, I think we should talk.\nAre you aware of the '
                 'many uses essential oils can bring to your everyday'
                 'well-being? Well, let me tell you...'):
-    return {'name': name, 'email': email, 'message': message}
+    return {
+        'g-recaptcha-response': g_recaptcha_response,
+        'name': name,
+        'email': email,
+        'message': message,
+    }
 
 
 def _an_environment_without(*excluded_variables):

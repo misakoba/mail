@@ -13,7 +13,8 @@ import requests
 
 RECAPTCHA_DEFAULT_EXPECTED_ACTION = 'submit'
 RECAPTCHA_DEFAULT_SCORE_THRESHOLD = 0.5
-SEND_FORM_REQUIRED_FIELDS = {'name', 'email', 'message'}
+SEND_FORM_REQUIRED_FIELDS = {'g-recaptcha-response', 'name', 'email',
+                             'message'}
 REQUIRED_CONFIG_VALUES = {'RECAPTCHA_SECRET', 'MAILGUN_API_KEY',
                           'MAILGUN_DOMAIN'}
 
@@ -40,16 +41,10 @@ def create_app():  # pylint: disable=too-many-statements
     @app.route('/send', methods=['POST'])
     def send():  # pylint: disable=unused-variable
         """Serves the '/send' endpoint for sending messages."""
-        _validate_send_parameters()
-        _validate_recaptcha_response()
         _validate_form()
+        _validate_recaptcha_response()
 
         return 'Successfully validated message request.'
-
-    def _validate_send_parameters():
-        if 'recaptcha_response' not in flask.request.args:
-            flask.abort(http.HTTPStatus.BAD_REQUEST,
-                        'Request sent without recaptcha_response parameter.')
 
     def _validate_recaptcha_response():
         response = _post_to_recaptcha_site_verify()
@@ -105,14 +100,15 @@ def create_app():  # pylint: disable=too-many-statements
             flask.abort(
                 http.HTTPStatus.BAD_REQUEST,
                 'The recaptcha_response parameter value '
-                f'"{flask.request.args["recaptcha_response"]}" was not valid.')
+                f'"{flask.request.form["g-recaptcha-response"]}" was not '
+                'valid.')
 
     def _check_site_verify_response_timeout_or_duplicate(site_verify_response):
         if site_verify_response['error-codes'] == ['timeout-or-duplicate']:
             flask.abort(
                 http.HTTPStatus.BAD_REQUEST,
                 'The recaptcha_response parameter value '
-                f'"{flask.request.args["recaptcha_response"]}" was too '
+                f'"{flask.request.form["g-recaptcha-response"]}" was too '
                 'old or previously used.')
 
     def _handle_non_client_site_verify_error(site_verify_response):
@@ -128,7 +124,7 @@ def create_app():  # pylint: disable=too-many-statements
     def _recaptcha_site_verify_params():
         return {
             'secret': config['RECAPTCHA_SECRET'],
-            'response': flask.request.args['recaptcha_response'],
+            'response': flask.request.form['g-recaptcha-response'],
             'remoteip': flask.request.remote_addr,
         }
 
