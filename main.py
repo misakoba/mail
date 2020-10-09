@@ -46,6 +46,32 @@ def create_app():  # pylint: disable=too-many-statements
 
         return 'Successfully validated message request.'
 
+    def _validate_form():
+        for field in SEND_FORM_REQUIRED_FIELDS:
+            _check_missing_send_form_field(field)
+            _check_empty_form_field(field)
+
+        # NOTE: The exceptions returned by email.registry.Address are currently
+        # (as of 2020-10-05) not documented well, so we're using a catch-all
+        # exception below.
+        addr_spec = flask.request.form['email']
+        try:
+            email.headerregistry.Address(addr_spec=addr_spec)
+        except Exception:  # pylint: disable=broad-except
+            flask.abort(http.HTTPStatus.BAD_REQUEST,
+                        f'Email address "{addr_spec}" is invalid.')
+
+    def _check_missing_send_form_field(field):
+        if field not in flask.request.form:
+            flask.abort(
+                http.HTTPStatus.BAD_REQUEST,
+                f'The posted form was missing the "{field}" field.')
+
+    def _check_empty_form_field(field):
+        if flask.request.form[field] == '':
+            flask.abort(http.HTTPStatus.BAD_REQUEST,
+                        f'The posted form had an empty "{field}" field.')
+
     def _validate_recaptcha_response():
         response = _post_to_recaptcha_site_verify()
         _check_recaptcha_site_verify_http_status(response)
@@ -127,32 +153,6 @@ def create_app():  # pylint: disable=too-many-statements
             'response': flask.request.form['g-recaptcha-response'],
             'remoteip': flask.request.remote_addr,
         }
-
-    def _validate_form():
-        for field in SEND_FORM_REQUIRED_FIELDS:
-            _check_missing_send_form_field(field)
-            _check_empty_form_field(field)
-
-        # NOTE: The exceptions returned by email.registry.Address are currently
-        # (as of 2020-10-05) not documented well, so we're using a catch-all
-        # exception below.
-        addr_spec = flask.request.form['email']
-        try:
-            email.headerregistry.Address(addr_spec=addr_spec)
-        except Exception:  # pylint: disable=broad-except
-            flask.abort(http.HTTPStatus.BAD_REQUEST,
-                        f'Email address "{addr_spec}" is invalid.')
-
-    def _check_missing_send_form_field(field):
-        if field not in flask.request.form:
-            flask.abort(
-                http.HTTPStatus.BAD_REQUEST,
-                f'The posted form was missing the "{field}" field.')
-
-    def _check_empty_form_field(field):
-        if flask.request.form[field] == '':
-            flask.abort(http.HTTPStatus.BAD_REQUEST,
-                        f'The posted form had an empty "{field}" field.')
 
     @app.errorhandler(werkzeug.exceptions.HTTPException)
     def handle_exception(error):  # pylint: disable=unused-variable
