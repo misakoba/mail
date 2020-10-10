@@ -27,7 +27,7 @@ def _a_test_client_with(*, environment=None):
     return app.test_client()
 
 
-def test_successful_send(client, subtests):
+def test_successful_send_message(client, subtests):
     """Tests messages successfully sent."""
     recaptcha_responses = [
         'my_request_token',
@@ -41,7 +41,7 @@ def test_successful_send(client, subtests):
                     success=True)
 
                 response = client.post(
-                    '/send',
+                    '/messages',
                     data=_a_message_form_with(
                         g_recaptcha_response=recaptcha_response))
 
@@ -55,12 +55,12 @@ def test_successful_send(client, subtests):
             assert response.data == b'Successfully validated message request.'
 
 
-def test_send_propagates_remote_ip(client, subtests):
+def test_send_message_propagates_remote_ip(client, subtests):
     """Tests remote IP address sent to reCAPTCHA server."""
     for remote_addr in ['123.45.67.89', '98.76.54.123']:
         with subtests.test(remote_addr=remote_addr):
             with mock.patch('requests.post', autospec=True) as mock_post:
-                client.post('/send', data=_a_message_form(),
+                client.post('/messages', data=_a_message_form(),
                             environ_base={'REMOTE_ADDR': remote_addr})
 
             mock_post.assert_called_once_with(
@@ -71,22 +71,22 @@ def test_send_propagates_remote_ip(client, subtests):
                         })
 
 
-def test_send_wrong_method(client):
+def test_send_message_wrong_method(client):
     """Tests a 405 error returned when accessing send with a bad method."""
-    response = client.get('/send')
+    response = client.get('/messages')
 
     assert response.status_code == http.HTTPStatus.METHOD_NOT_ALLOWED
     assert response.content_type == 'application/json'
 
 
-def test_send_400_error_if_no_g_recaptcha_response_specified(client):
+def test_send_message_400_error_if_no_g_recaptcha_response_specified(client):
     """Tests 400 error returned if form has no reCAPTCHA response."""
     with mock.patch('requests.post', autospec=True) as mock_post:
         mock_json = mock_post.return_value.json
         mock_json.return_value = _a_site_verify_response_with(success=True)
 
         response = client.post(
-            '/send',
+            '/messages',
             data=_a_message_form_without('g-recaptcha-response'))
 
     assert response.status_code == http.HTTPStatus.BAD_REQUEST
@@ -98,14 +98,14 @@ def test_send_400_error_if_no_g_recaptcha_response_specified(client):
     }
 
 
-def test_send_400_error_if_g_recaptcha_response_is_empty(client):
+def test_send_messgae_400_error_if_g_recaptcha_response_is_empty(client):
     """Tests 400 error returned if form has an empty g-recaptcha-response."""
     with mock.patch('requests.post', autospec=True) as mock_post:
         mock_json = mock_post.return_value.json
         mock_json.return_value = _a_site_verify_response_with(success=True)
 
         response = client.post(
-            '/send',
+            '/messages',
             data=_a_message_form_with(g_recaptcha_response=''))
 
     assert response.status_code == http.HTTPStatus.BAD_REQUEST
@@ -117,13 +117,13 @@ def test_send_400_error_if_g_recaptcha_response_is_empty(client):
     }
 
 
-def test_send_400_error_if_no_name_specified(client):
+def test_send_message_400_error_if_no_name_specified(client):
     """Tests 400 error returned if form has no sender name."""
     with mock.patch('requests.post', autospec=True) as mock_post:
         mock_json = mock_post.return_value.json
         mock_json.return_value = _a_site_verify_response_with(success=True)
 
-        response = client.post('/send',
+        response = client.post('/messages',
                                data=_a_message_form_without('name'))
 
     assert response.status_code == http.HTTPStatus.BAD_REQUEST
@@ -134,13 +134,13 @@ def test_send_400_error_if_no_name_specified(client):
     }
 
 
-def test_send_400_error_if_name_is_empty(client):
+def test_send_message_400_error_if_name_is_empty(client):
     """Tests 400 error returned if form has an empty sender name."""
     with mock.patch('requests.post', autospec=True) as mock_post:
         mock_json = mock_post.return_value.json
         mock_json.return_value = _a_site_verify_response_with(success=True)
 
-        response = client.post('/send',
+        response = client.post('/messages',
                                data=_a_message_form_with(name=''))
 
     assert response.status_code == http.HTTPStatus.BAD_REQUEST
@@ -151,13 +151,13 @@ def test_send_400_error_if_name_is_empty(client):
     }
 
 
-def test_send_400_error_if_no_email_specified(client):
+def test_send_message_400_error_if_no_email_specified(client):
     """Tests 400 error returned if form has no sender email address."""
     with mock.patch('requests.post', autospec=True) as mock_post:
         mock_json = mock_post.return_value.json
         mock_json.return_value = _a_site_verify_response_with(success=True)
 
-        response = client.post('/send',
+        response = client.post('/messages',
                                data=_a_message_form_without('email'))
 
     assert response.status_code == http.HTTPStatus.BAD_REQUEST
@@ -168,13 +168,13 @@ def test_send_400_error_if_no_email_specified(client):
     }
 
 
-def test_send_400_error_if_empty_email_specified(client):
+def test_send_message_400_error_if_empty_email_specified(client):
     """Tests 400 error returned if form has an empty sender email address."""
     with mock.patch('requests.post', autospec=True) as mock_post:
         mock_json = mock_post.return_value.json
         mock_json.return_value = _a_site_verify_response_with(success=True)
 
-        response = client.post('/send',
+        response = client.post('/messages',
                                data=_a_message_form_with(email=''))
 
     assert response.status_code == http.HTTPStatus.BAD_REQUEST
@@ -185,7 +185,7 @@ def test_send_400_error_if_empty_email_specified(client):
     }
 
 
-def test_send_400_error_if_empty_email_is_invalid(client, subtests):
+def test_send_message_400_error_if_empty_email_is_invalid(client, subtests):
     """Tests 400 error returned if the sender email address has no domain."""
     invalid_addresses = [
         'foo',  # No domain
@@ -202,7 +202,7 @@ def test_send_400_error_if_empty_email_is_invalid(client, subtests):
                 mock_json.return_value = _a_site_verify_response_with(
                     success=True)
 
-                response = client.post('/send',
+                response = client.post('/messages',
                                        data=_a_message_form_with(email=email))
 
             assert response.status_code == http.HTTPStatus.BAD_REQUEST
@@ -213,13 +213,13 @@ def test_send_400_error_if_empty_email_is_invalid(client, subtests):
             }
 
 
-def test_send_400_error_if_no_message_specified(client):
+def test_send_message_400_error_if_no_message_specified(client):
     """Tests 400 error returned if form has no sender email address."""
     with mock.patch('requests.post', autospec=True) as mock_post:
         mock_json = mock_post.return_value.json
         mock_json.return_value = _a_site_verify_response_with(success=True)
 
-        response = client.post('/send',
+        response = client.post('/messages',
                                data=_a_message_form_without('message'))
 
     assert response.status_code == http.HTTPStatus.BAD_REQUEST
@@ -230,13 +230,13 @@ def test_send_400_error_if_no_message_specified(client):
     }
 
 
-def test_send_400_error_if_empty_message_specified(client):
+def test_send_message_400_error_if_empty_message_specified(client):
     """Tests 400 error returned if form has an empty message."""
     with mock.patch('requests.post', autospec=True) as mock_post:
         mock_json = mock_post.return_value.json
         mock_json.return_value = _a_site_verify_response_with(success=True)
 
-        response = client.post('/send',
+        response = client.post('/messages',
                                data=_a_message_form_with(message=''))
 
     assert response.status_code == http.HTTPStatus.BAD_REQUEST
@@ -247,7 +247,7 @@ def test_send_400_error_if_empty_message_specified(client):
     }
 
 
-def test_send_recaptcha_request_failed(client):
+def test_send_message_recaptcha_request_failed(client):
     """Tests a 500 error returned when accessing send with a bad method."""
     mock_recaptcha_response = mock.create_autospec(requests.Response,
                                                    instance=True)
@@ -258,7 +258,7 @@ def test_send_recaptcha_request_failed(client):
         mock_raise_for_status = mock_post.return_value.raise_for_status
         mock_raise_for_status.side_effect = requests.HTTPError(
             'Bad request.')
-        response = client.post('/send',
+        response = client.post('/messages',
                                data=_a_message_form())
         mock_post.assert_called_once_with(
             'https://www.google.com/recaptcha/api/siteverify',
@@ -276,7 +276,7 @@ def test_send_recaptcha_request_failed(client):
         }
 
 
-def test_send_recaptcha_request_failure_logged(client, caplog):
+def test_send_message_recaptcha_request_failure_logged(client, caplog):
     """Tests that the HTTPRequestError is logged on reCAPTCHA HTTP failure."""
     mock_recaptcha_response = mock.create_autospec(requests.Response,
                                                    instance=True)
@@ -287,7 +287,7 @@ def test_send_recaptcha_request_failure_logged(client, caplog):
         mock_raise_for_status = mock_post.return_value.raise_for_status
         mock_raise_for_status.side_effect = requests.HTTPError(
             'Bad request.')
-        client.post('/send',
+        client.post('/messages',
                     data=_a_message_form())
 
     error_logs = [record for record in caplog.records
@@ -299,7 +299,7 @@ def test_send_recaptcha_request_failure_logged(client, caplog):
     assert record.exc_info
 
 
-def test_send_env_variable_recaptcha_secret(subtests):
+def test_send_message_env_variable_recaptcha_secret(subtests):
     """Test recaptcha secret configured via environment variable."""
     for recaptcha_secret in ['secret_from_env', 'another_secret_from_env']:
         with subtests.test(recaptcha_secret=recaptcha_secret):
@@ -307,7 +307,7 @@ def test_send_env_variable_recaptcha_secret(subtests):
                 client = _a_test_client_with(
                     environment=_an_environment_with(
                         recaptcha_secret=recaptcha_secret))
-                client.post('/send',
+                client.post('/messages',
                             data=_a_message_form())
 
             mock_post.assert_called_once_with(
@@ -317,7 +317,8 @@ def test_send_env_variable_recaptcha_secret(subtests):
                         'remoteip': mock.ANY})
 
 
-def test_send_with_unexpected_action_returns_400_error(client, subtests):
+def test_send_message_with_unexpected_action_returns_400_error(client,
+                                                               subtests):
     """Test 400 error returned when reCAPTCHA action is not 'submit'."""
     for action in ['bad_action', 'unexpected_action']:
         with subtests.test(action=action):
@@ -326,7 +327,7 @@ def test_send_with_unexpected_action_returns_400_error(client, subtests):
                 mock_json.return_value = _a_site_verify_response_with(
                     success=True, action=action)
 
-                response = client.post('/send',
+                response = client.post('/messages',
                                        data=_a_message_form())
 
             assert response.status_code == http.HTTPStatus.BAD_REQUEST
@@ -339,7 +340,8 @@ def test_send_with_unexpected_action_returns_400_error(client, subtests):
             }
 
 
-def test_send_with_recaptcha_score_below_threshold_400_error(client, subtests):
+def test_send_message_with_recaptcha_score_below_threshold_400_error(client,
+                                                                     subtests):
     """Test 400 error returned when reCAPTCHA score is below threshold."""
     for score in [main.RECAPTCHA_DEFAULT_SCORE_THRESHOLD - 0.1,
                   main.RECAPTCHA_DEFAULT_SCORE_THRESHOLD - 0.2]:
@@ -348,7 +350,7 @@ def test_send_with_recaptcha_score_below_threshold_400_error(client, subtests):
                 mock_json = mock_post.return_value.json
                 mock_json.return_value = _a_site_verify_response_with(
                     success=True, score=score)
-                response = client.post('/send',
+                response = client.post('/messages',
                                        data=_a_message_form())
 
             assert response.status_code == http.HTTPStatus.BAD_REQUEST
@@ -361,7 +363,8 @@ def test_send_with_recaptcha_score_below_threshold_400_error(client, subtests):
             }
 
 
-def test_send_with_an_invalid_recaptcha_response_400_error(client, subtests):
+def test_send_message_with_an_invalid_recaptcha_response_400_error(client,
+                                                                   subtests):
     """Test 400 error returned when reCAPTCHA response is invalid."""
     for recaptcha_response in ['some_invalid_token', 'another_invalid_token']:
         with subtests.test(recaptcha_response=recaptcha_response):
@@ -371,7 +374,7 @@ def test_send_with_an_invalid_recaptcha_response_400_error(client, subtests):
                     success=False, error_codes=['invalid-input-response'])
 
                 response = client.post(
-                    '/send',
+                    '/messages',
                     data=_a_message_form_with(
                         g_recaptcha_response=recaptcha_response))
 
@@ -385,7 +388,7 @@ def test_send_with_an_invalid_recaptcha_response_400_error(client, subtests):
             }
 
 
-def test_send_with_stale_or_duplicate_recaptcha_response_400_error(
+def test_send_message_with_stale_or_duplicate_recaptcha_response_400_error(
         client, subtests):
     """Test 400 error returned when reCAPTCHA response is stale or duped."""
     for recaptcha_response in ['some_stale_secrete', 'an already_used_secret']:
@@ -396,7 +399,7 @@ def test_send_with_stale_or_duplicate_recaptcha_response_400_error(
                     success=False, error_codes=['timeout-or-duplicate'])
 
                 response = client.post(
-                    '/send',
+                    '/messages',
                     data=_a_message_form_with(
                         g_recaptcha_response=recaptcha_response))
 
@@ -411,14 +414,14 @@ def test_send_with_stale_or_duplicate_recaptcha_response_400_error(
             }
 
 
-def test_send_site_verify_non_client_errors_returns_500_error(client):
+def test_send_message_site_verify_non_client_errors_returns_500_error(client):
     """Test 500 error returned when site verify has non-client errors."""
     with mock.patch('requests.post', autospec=True) as mock_post:
         mock_json = mock_post.return_value.json
         mock_json.return_value = _a_site_verify_response_with(
             success=False, error_codes=['some-other-error', 'another-error'])
 
-        response = client.post('/send',
+        response = client.post('/messages',
                                data=_a_message_form())
 
     assert response.status_code == http.HTTPStatus.INTERNAL_SERVER_ERROR
@@ -431,7 +434,8 @@ def test_send_site_verify_non_client_errors_returns_500_error(client):
     }
 
 
-def test_send_site_verify_non_client_errors_logged_error(subtests, caplog):
+def test_send_message_site_verify_non_client_errors_logged_error(subtests,
+                                                                 caplog):
     """Test useful data logged when site verify has non-client errors."""
     TestInput = collections.namedtuple(
         'TestInput',
@@ -455,7 +459,7 @@ def test_send_site_verify_non_client_errors_logged_error(subtests, caplog):
                 client = _a_test_client_with(
                     environment=_an_environment_with(
                         recaptcha_secret=recaptcha_secret))
-                client.post('/send',
+                client.post('/messages',
                             data=_a_message_form_with(
                                 g_recaptcha_response=recaptcha_response),
                             environ_base={'REMOTE_ADDR': remote_addr})

@@ -38,9 +38,9 @@ def create_app():  # pylint: disable=too-many-statements
     _populate_config_from_environment(config)
     _check_for_required_config_values(config)
 
-    @app.route('/send', methods=['POST'])
-    def send():  # pylint: disable=unused-variable
-        """Serves the '/send' endpoint for sending messages."""
+    @app.route('/messages', methods=['POST'])
+    def send_message():  # pylint: disable=unused-variable
+        """Serves the '/messages' endpoint for sending messages."""
         _validate_form()
         _validate_recaptcha_response()
 
