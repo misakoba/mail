@@ -195,7 +195,7 @@ def _standardized_message_to_header(raw_message_to_header):
     except IndexError as error:
         raise InvalidMessageToHeader(
             "Could not parse MESSAGE_TO_HEADER config value "
-            f"{raw_message_to_header!r}") from error
+            f"{raw_message_to_header!r}.") from error
 
     if defects := standardized_to_header.defects:
         defects_listing = '\n'.join(f'- {defect}' for defect in defects)

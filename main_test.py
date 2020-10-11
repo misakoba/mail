@@ -478,53 +478,65 @@ def test_send_message_site_verify_non_client_errors_logged_error(subtests,
             f"'error-codes': {error_codes}}}")
 
 
-def test_app_creation_failed_no_recaptcha_secret():
+def test_app_creation_failed_no_recaptcha_secret(subtests):
     """Test exception raised when reCAPTCHA secret is undefined."""
-    with mock.patch.dict('os.environ',
-                         _an_environment_without('RECAPTCHA_SECRET'),
-                         clear=True):
-        with pytest.raises(
-                main.MissingRequiredConfigValueError,
-                match=(
-                'Cannot create web application without RECAPTCHA_SECRET '
-                'configuration value.')):
-            main.create_app()
+    for subcase, environ in [
+        ('unset', _an_environment_without('RECAPTCHA_SECRET')),
+        ('empty', _an_environment_with(recaptcha_secret=''))
+    ]:
+        with subtests.test(subcase=subcase):
+            with mock.patch.dict('os.environ', environ, clear=True):
+                with pytest.raises(
+                        main.MissingRequiredConfigValueError,
+                        match=(
+                        'Cannot create web application without '
+                        'RECAPTCHA_SECRET configuration value.')):
+                    main.create_app()
 
 
-def test_app_creation_failed_no_mailgun_api_key():
+def test_app_creation_failed_no_mailgun_api_key(subtests):
     """Test exception raised when Mailgun API Key is undefined."""
-    with mock.patch.dict('os.environ',
-                         _an_environment_without('MAILGUN_API_KEY'),
-                         clear=True):
-        with pytest.raises(
-                main.MissingRequiredConfigValueError,
-                match=('Cannot create web application without MAILGUN_API_KEY '
-                       'configuration value.')):
-            main.create_app()
+    for subcase, environ in [
+        ('unset', _an_environment_without('MAILGUN_API_KEY')),
+        ('empty', _an_environment_with(mailgun_api_key=''))
+    ]:
+        with subtests.test(subcase=subcase):
+            with mock.patch.dict('os.environ', environ, clear=True):
+                with pytest.raises(
+                        main.MissingRequiredConfigValueError,
+                        match=('Cannot create web application without '
+                               'MAILGUN_API_KEY configuration value.')):
+                    main.create_app()
 
 
-def test_app_creation_failed_no_mailgun_domain():
+def test_app_creation_failed_no_mailgun_domain(subtests):
     """Test exception raised when Mailgun Domain is undefined."""
-    with mock.patch.dict('os.environ',
-                         _an_environment_without('MAILGUN_DOMAIN'),
-                         clear=True):
-        with pytest.raises(
-                main.MissingRequiredConfigValueError,
-                match=('Cannot create web application without MAILGUN_DOMAIN '
-                       'configuration value.')):
-            main.create_app()
+    for subcase, environ in [
+        ('unset', _an_environment_without('MAILGUN_DOMAIN')),
+        ('empty', _an_environment_with(mailgun_domain='')),
+    ]:
+        with subtests.test(subcase=subcase):
+            with mock.patch.dict('os.environ', environ, clear=True):
+                with pytest.raises(
+                        main.MissingRequiredConfigValueError,
+                        match=('Cannot create web application without '
+                               'MAILGUN_DOMAIN configuration value.')):
+                    main.create_app()
 
 
-def test_app_creation_failed_no_message_to_header():
+def test_app_creation_failed_no_message_to_header(subtests):
     """Test exception raised when config val MESSAGE_TO_HEADER is undefined."""
-    with mock.patch.dict('os.environ',
-                         _an_environment_without('MESSAGE_TO_HEADER'),
-                         clear=True):
-        with pytest.raises(
-                main.MissingRequiredConfigValueError,
-                match=('Cannot create web application without '
-                       'MESSAGE_TO_HEADER configuration value.')):
-            main.create_app()
+    for subcase, environ in [
+        ('unset', _an_environment_without('MESSAGE_TO_HEADER')),
+        ('empty', _an_environment_with(message_to_header='')),
+    ]:
+        with subtests.test(subcase=subcase):
+            with mock.patch.dict('os.environ', environ, clear=True):
+                with pytest.raises(
+                        main.MissingRequiredConfigValueError,
+                        match=('Cannot create web application without '
+                               'MESSAGE_TO_HEADER configuration value.')):
+                    main.create_app()
 
 
 def test_app_creation_failed_message_to_header_parse_failure(subtests):
@@ -539,7 +551,7 @@ def test_app_creation_failed_message_to_header_parse_failure(subtests):
                 with pytest.raises(
                         main.InvalidMessageToHeader,
                         match="Could not parse MESSAGE_TO_HEADER config value "
-                              f"'{to_header}'"):
+                              f"'{to_header}'."):
                     main.create_app()
 
 
