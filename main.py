@@ -49,8 +49,9 @@ def create_app():  # pylint: disable=too-many-statements
         """Serves the '/messages' endpoint for sending messages."""
         _validate_form()
         _validate_recaptcha_response()
+        _send_message_via_mailgun_api()
 
-        return 'Successfully validated message request.'
+        return 'Successfully sent message.'
 
     def _validate_form():
         for field in SEND_FORM_REQUIRED_FIELDS:
@@ -159,6 +160,17 @@ def create_app():  # pylint: disable=too-many-statements
             'response': flask.request.form['g-recaptcha-response'],
             'remoteip': flask.request.remote_addr,
         }
+
+    def _send_message_via_mailgun_api():
+        requests.post(
+            f"https://api.mailgun.net/v3/{app.config['MAILGUN_DOMAIN']}/"
+            'messages',
+            auth=('api', app.config['MAILGUN_API_KEY']),
+            data={'from': str(email.headerregistry.Address(
+                display_name=flask.request.form['name'],
+                addr_spec=flask.request.form['email'])),
+                'to': app.config['MESSAGE_TO_HEADER'],
+                'text': flask.request.form['message']})
 
     @app.errorhandler(werkzeug.exceptions.HTTPException)
     def handle_exception(error):  # pylint: disable=unused-variable

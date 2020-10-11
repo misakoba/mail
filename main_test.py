@@ -29,30 +29,73 @@ def _a_test_client_with(*, environment=None):
 
 def test_successful_send_message(client, subtests):
     """Tests messages successfully sent."""
-    recaptcha_responses = [
-        'my_request_token',
-        'another_request_token',
+    message_forms = [
+        _a_message_form_with(g_recaptcha_response='my_request_token',
+                             name='Mr. X',
+                             email='mr.x@somedomain.com',
+                             message="Hey, what's up?"),
+        _a_message_form_with(g_recaptcha_response='another_request_token',
+                             name='Princess Peach',
+                             email='peach@royal.gov.mk',
+                             message="Please come to the castle. I've baked a "
+                                     "cake for you."),
     ]
-    for recaptcha_response in recaptcha_responses:
-        with subtests.test(recaptcha_response=recaptcha_response):
+    mailgun_api_keys = ['some_mailgun_api_key', 'another_mailgun_api_key']
+    mailgun_domains = ['some_mailgun_domain', 'another_mailgun_domain']
+    message_to_headers = ['a@b.c', 'foo@bar.baz']
+    expected_froms = [
+       '"Mr. X" <mr.x@somedomain.com>',
+       'Princess Peach <peach@royal.gov.mk>',
+    ]
+    for (message_form,
+         mailgun_api_key,
+         mailgun_domain,
+         message_to_header,
+         expected_from) in zip(message_forms,
+                               mailgun_api_keys,
+                               mailgun_domains,
+                               message_to_headers,
+                               expected_froms):
+        with subtests.test(message_form=message_form,
+                           mailgun_api_key=mailgun_api_key,
+                           mailgun_domain=mailgun_domain,
+                           message_to_header=message_to_header,
+                           expected_from=expected_from):
+            client = _a_test_client_with(
+                environment=_an_environment_with(
+                    mailgun_api_key=mailgun_api_key,
+                    mailgun_domain=mailgun_domain,
+                    message_to_header=message_to_header))
             with mock.patch('requests.post', autospec=True) as mock_post:
                 mock_json = mock_post.return_value.json
                 mock_json.return_value = _a_site_verify_response_with(
                     success=True)
 
-                response = client.post(
-                    '/messages',
-                    data=_a_message_form_with(
-                        g_recaptcha_response=recaptcha_response))
+                response = client.post('/messages', data=message_form)
 
-            mock_post.assert_called_once_with(
-                'https://www.google.com/recaptcha/api/siteverify',
-                params={'secret': mock.ANY,
-                        'response': recaptcha_response,
-                        'remoteip': mock.ANY
-                        })
+            mock_post.assert_has_calls([
+                # reCAPTCHA Validation
+                mock.call(
+                    'https://www.google.com/recaptcha/api/siteverify',
+                    params={'secret': mock.ANY,
+                            'response': message_form['g-recaptcha-response'],
+                            'remoteip': mock.ANY,
+                            }),
+                mock.call().raise_for_status(),
+                mock.call().json(),
+
+                # Message sending
+                mock.call(
+                    f'https://api.mailgun.net/v3/{mailgun_domain}/messages',
+                    auth=('api', mailgun_api_key),
+                    data={
+                        'from': expected_from,
+                        'to': message_to_header,
+                        'text': message_form['message'],
+                    }),
+            ])
             assert response.status_code == http.HTTPStatus.OK
-            assert response.data == b'Successfully validated message request.'
+            assert response.data == b'Successfully sent message.'
 
 
 def test_send_message_propagates_remote_ip(client, subtests):
@@ -300,15 +343,14 @@ def test_send_message_recaptcha_request_failure_logged(client, caplog):
 
 
 def test_send_message_env_variable_recaptcha_secret(subtests):
-    """Test recaptcha secret configured via environment variable."""
+    """Test reCAPTCHA secret configured via environment variable."""
     for recaptcha_secret in ['secret_from_env', 'another_secret_from_env']:
         with subtests.test(recaptcha_secret=recaptcha_secret):
+            client = _a_test_client_with(
+                environment=_an_environment_with(
+                    recaptcha_secret=recaptcha_secret))
             with mock.patch('requests.post', autospec=True) as mock_post:
-                client = _a_test_client_with(
-                    environment=_an_environment_with(
-                        recaptcha_secret=recaptcha_secret))
-                client.post('/messages',
-                            data=_a_message_form())
+                client.post('/messages', data=_a_message_form())
 
             mock_post.assert_called_once_with(
                 'https://www.google.com/recaptcha/api/siteverify',
