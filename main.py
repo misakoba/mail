@@ -16,7 +16,7 @@ RECAPTCHA_DEFAULT_SCORE_THRESHOLD = 0.5
 SEND_FORM_REQUIRED_FIELDS = {'g-recaptcha-response', 'name', 'email',
                              'message'}
 REQUIRED_CONFIG_VALUES = {'RECAPTCHA_SECRET', 'MAILGUN_API_KEY',
-                          'MAILGUN_DOMAIN'}
+                          'MAILGUN_DOMAIN', 'MESSAGE_TO_HEADER'}
 
 
 class MisakobaMailError(Exception):

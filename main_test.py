@@ -498,9 +498,8 @@ def test_app_creation_failed_no_mailgun_api_key():
                          clear=True):
         with pytest.raises(
                 main.MissingRequiredConfigValueError,
-                match=(
-                'Cannot create web application without MAILGUN_API_KEY '
-                'configuration value.')):
+                match=('Cannot create web application without MAILGUN_API_KEY '
+                       'configuration value.')):
             main.create_app()
 
 
@@ -511,9 +510,20 @@ def test_app_creation_failed_no_mailgun_domain():
                          clear=True):
         with pytest.raises(
                 main.MissingRequiredConfigValueError,
-                match=(
-                'Cannot create web application without MAILGUN_DOMAIN '
-                'configuration value.')):
+                match=('Cannot create web application without MAILGUN_DOMAIN '
+                       'configuration value.')):
+            main.create_app()
+
+
+def test_app_creation_failed_no_message_to_header():
+    """Test exception raised when Mailgun Domain is undefined."""
+    with mock.patch.dict('os.environ',
+                         _an_environment_without('MESSAGE_TO_HEADER'),
+                         clear=True):
+        with pytest.raises(
+                main.MissingRequiredConfigValueError,
+                match=('Cannot create web application without '
+                       'MESSAGE_TO_HEADER configuration value.')):
             main.create_app()
 
 
@@ -594,11 +604,13 @@ def _an_environment():
 def _an_environment_with(*,
                          recaptcha_secret='some_secret',
                          mailgun_api_key='some_mailgun_api_key',
-                         mailgun_domain='some_mailgun_domain'):
+                         mailgun_domain='some_mailgun_domain',
+                         message_to_header='someone@somewhere'):
     return {
         'RECAPTCHA_SECRET': recaptcha_secret,
         'MAILGUN_API_KEY': mailgun_api_key,
-        'MAILGUN_DOMAIN': mailgun_domain
+        'MAILGUN_DOMAIN': mailgun_domain,
+        'MESSAGE_TO_HEADER': message_to_header,
     }
 
 
