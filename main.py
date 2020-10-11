@@ -1,6 +1,7 @@
 """A Flask app implementing the mailing backend for misakoba.github.io."""
 
 import email.headerregistry
+import email.policy
 import http
 import json
 import sys
@@ -27,6 +28,10 @@ class MissingRequiredConfigValueError(MisakobaMailError):
     """Error for MissingConfigValue."""
 
 
+class InvalidMessageToHeader(MisakobaMailError):
+    """Error if the Message's To Header is invalid"""
+
+
 def create_app():  # pylint: disable=too-many-statements
     """Creates the Flask app."""
     # pylint: disable=too-many-locals
@@ -37,6 +42,7 @@ def create_app():  # pylint: disable=too-many-statements
     config = app.config
     _populate_config_from_environment(config)
     _check_for_required_config_values(config)
+    _standardize_message_to_header(config)
 
     @app.route('/messages', methods=['POST'])
     def send_message():  # pylint: disable=unused-variable
@@ -169,6 +175,11 @@ def create_app():  # pylint: disable=too-many-statements
     return app
 
 
+def _populate_config_from_environment(config):
+    for config_value_name in REQUIRED_CONFIG_VALUES:
+        config[config_value_name] = os.environ.get(config_value_name)
+
+
 def _check_for_required_config_values(config):
     for config_value_name in REQUIRED_CONFIG_VALUES:
         if not config[config_value_name]:
@@ -177,9 +188,14 @@ def _check_for_required_config_values(config):
                 'configuration value.')
 
 
-def _populate_config_from_environment(config):
-    for config_value_name in REQUIRED_CONFIG_VALUES:
-        config[config_value_name] = os.environ.get(config_value_name)
+def _standardize_message_to_header(config):
+    try:
+        config['MESSAGE_TO_HEADER'] = email.policy.strict.header_factory(
+            'to', config['MESSAGE_TO_HEADER'])
+    except IndexError as error:
+        raise InvalidMessageToHeader(
+            "Could not parse MESSAGE_TO_HEADER config value "
+            f"{config['MESSAGE_TO_HEADER']!r}") from error
 
 
 def create_app_or_die():

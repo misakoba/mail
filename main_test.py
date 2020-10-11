@@ -527,6 +527,22 @@ def test_app_creation_failed_no_message_to_header():
             main.create_app()
 
 
+def test_app_creation_failed_no_message_to_header_parse_failure(subtests):
+    """Test exception raised when Mailgun Domain is undefined."""
+    to_headers = ['a@', 'foo@']
+    for to_header in to_headers:
+        with subtests.test(to_header=to_header):
+            with mock.patch.dict('os.environ',
+                                 _an_environment_with(
+                                     message_to_header=to_header),
+                                 clear=True):
+                with pytest.raises(
+                        main.InvalidMessageToHeader,
+                        match="Could not parse MESSAGE_TO_HEADER config value "
+                              f"'{to_header}'"):
+                    main.create_app()
+
+
 def test_create_app_or_die_graceful_death_on_creation_failure():
     """Test that a SystemExit is raised on failure create to main app."""
     with mock.patch.dict('os.environ',
