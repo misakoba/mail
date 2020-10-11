@@ -516,7 +516,7 @@ def test_app_creation_failed_no_mailgun_domain():
 
 
 def test_app_creation_failed_no_message_to_header():
-    """Test exception raised when Mailgun Domain is undefined."""
+    """Test exception raised when config val MESSAGE_TO_HEADER is undefined."""
     with mock.patch.dict('os.environ',
                          _an_environment_without('MESSAGE_TO_HEADER'),
                          clear=True):
@@ -527,8 +527,8 @@ def test_app_creation_failed_no_message_to_header():
             main.create_app()
 
 
-def test_app_creation_failed_no_message_to_header_parse_failure(subtests):
-    """Test exception raised when Mailgun Domain is undefined."""
+def test_app_creation_failed_message_to_header_parse_failure(subtests):
+    """Test exception raised when MESSAGE_TO_HEADER is unparsable."""
     to_headers = ['a@', 'foo@']
     for to_header in to_headers:
         with subtests.test(to_header=to_header):
@@ -540,6 +540,27 @@ def test_app_creation_failed_no_message_to_header_parse_failure(subtests):
                         main.InvalidMessageToHeader,
                         match="Could not parse MESSAGE_TO_HEADER config value "
                               f"'{to_header}'"):
+                    main.create_app()
+
+
+def test_app_creation_failed_no_message_to_header_has_defects(subtests):
+    """Test exception raised when Mailgun Domain is undefined."""
+    for to_header, defects_listing in [
+        ('a', '- addr-spec local part with no domain'),
+        ('a, <b@c', ('- addr-spec local part with no domain\n'
+                     "- missing trailing '>' on angle-addr"))
+    ]:
+        with subtests.test(to_header=to_header,
+                           defects_listing=defects_listing):
+            with mock.patch.dict('os.environ',
+                                 _an_environment_with(
+                                     message_to_header=to_header),
+                                 clear=True):
+                with pytest.raises(
+                        main.InvalidMessageToHeader,
+                        match=f"MESSAGE_TO_HEADER config value '{to_header}' "
+                              'has the following defects:\n'
+                              f'{defects_listing}'):
                     main.create_app()
 
 

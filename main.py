@@ -42,7 +42,7 @@ def create_app():  # pylint: disable=too-many-statements
     config = app.config
     _populate_config_from_environment(config)
     _check_for_required_config_values(config)
-    _standardize_message_to_header(config)
+    _standardized_message_to_header(config['MESSAGE_TO_HEADER'])
 
     @app.route('/messages', methods=['POST'])
     def send_message():  # pylint: disable=unused-variable
@@ -188,14 +188,22 @@ def _check_for_required_config_values(config):
                 'configuration value.')
 
 
-def _standardize_message_to_header(config):
+def _standardized_message_to_header(raw_message_to_header):
     try:
-        config['MESSAGE_TO_HEADER'] = email.policy.strict.header_factory(
-            'to', config['MESSAGE_TO_HEADER'])
+        standardized_to_header = email.policy.strict.header_factory(
+            'to', raw_message_to_header)
     except IndexError as error:
         raise InvalidMessageToHeader(
             "Could not parse MESSAGE_TO_HEADER config value "
-            f"{config['MESSAGE_TO_HEADER']!r}") from error
+            f"{raw_message_to_header!r}") from error
+
+    if defects := standardized_to_header.defects:
+        defects_listing = '\n'.join(f'- {defect}' for defect in defects)
+        raise InvalidMessageToHeader(
+            f'MESSAGE_TO_HEADER config value {raw_message_to_header!r} has '
+            f'the following defects:\n{defects_listing}')
+
+    return standardized_to_header
 
 
 def create_app_or_die():
