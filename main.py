@@ -162,7 +162,7 @@ def create_app():  # pylint: disable=too-many-statements
         }
 
     def _send_message_via_mailgun_api():
-        requests.post(
+        response = requests.post(
             f"https://api.mailgun.net/v3/{app.config['MAILGUN_DOMAIN']}/"
             'messages',
             auth=('api', app.config['MAILGUN_API_KEY']),
@@ -171,6 +171,12 @@ def create_app():  # pylint: disable=too-many-statements
                 addr_spec=flask.request.form['email'])),
                 'to': app.config['MESSAGE_TO_HEADER'],
                 'text': flask.request.form['message']})
+        try:
+            response.raise_for_status()
+        except requests.HTTPError:
+            flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
+                        'An error was encountered when sending the message. '
+                        'Please try again later.')
 
     @app.errorhandler(werkzeug.exceptions.HTTPException)
     def handle_exception(error):  # pylint: disable=unused-variable

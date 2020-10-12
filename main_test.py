@@ -520,6 +520,26 @@ def test_send_message_site_verify_non_client_errors_logged_error(subtests,
             f"'error-codes': {error_codes}}}")
 
 
+def test_mailgun_message_send_http_error_returns_500_error(client):
+    """Tests messages successfully sent."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+        mock_post.return_value.raise_for_status.side_effect = [
+            None, requests.HTTPError('Bad request.')]
+
+        response = client.post('/messages', data=_a_message_form())
+
+    assert response.status_code == http.HTTPStatus.INTERNAL_SERVER_ERROR
+    assert response.content_type == 'application/json'
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.INTERNAL_SERVER_ERROR,
+        'name': 'Internal Server Error',
+        'description': 'An error was encountered when sending the '
+                       'message. Please try again later.',
+    }
+
+
 def test_app_creation_failed_no_recaptcha_secret(subtests):
     """Test exception raised when reCAPTCHA secret is undefined."""
     for subcase, environ in [
