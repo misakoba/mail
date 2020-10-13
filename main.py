@@ -32,18 +32,24 @@ class InvalidMessageToHeader(MisakobaMailError):
     """Error if the Message's To Header is invalid"""
 
 
-def create_app():  # pylint: disable=too-many-statements
+def create_app():
     """Creates the Flask app."""
-    # pylint: disable=too-many-locals
 
     app = flask.Flask(__name__)
     flask_cors.CORS(app)
+    _configure(app)
+    _add_handlers(app)
+    return app
 
+
+def _configure(app):
     config = app.config
     _populate_config_from_environment(config)
     _check_for_required_config_values(config)
     _standardized_message_to_header(config['MESSAGE_TO_HEADER'])
 
+
+def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
     @app.route('/messages', methods=['POST'])
     def send_message():  # pylint: disable=unused-variable
         """Serves the '/messages' endpoint for sending messages."""
@@ -156,7 +162,7 @@ def create_app():  # pylint: disable=too-many-statements
 
     def _recaptcha_site_verify_params():
         return {
-            'secret': config['RECAPTCHA_SECRET'],
+            'secret': app.config['RECAPTCHA_SECRET'],
             'response': flask.request.form['g-recaptcha-response'],
             'remoteip': flask.request.remote_addr,
         }
@@ -203,8 +209,6 @@ def create_app():  # pylint: disable=too-many-statements
         })
         response.content_type = 'application/json'
         return response
-
-    return app
 
 
 def _populate_config_from_environment(config):
