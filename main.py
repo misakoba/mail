@@ -173,8 +173,7 @@ def create_app():  # pylint: disable=too-many-statements
                 'text': flask.request.form['message']})
         try:
             response.raise_for_status()
-        except requests.HTTPError as e:
-            flask.logger.error()
+        except requests.HTTPError:
             flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
                         'An error was encountered when sending the message. '
                         'Please try again later.')
