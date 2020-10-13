@@ -339,7 +339,6 @@ def test_send_message_recaptcha_request_failure_logged(client, caplog):
     record = error_logs[0]
     assert record.getMessage() == (
         'Error in communicating with reCAPTCHA server: Bad request.')
-    assert record.exc_info
 
 
 def test_send_message_env_variable_recaptcha_secret(subtests):

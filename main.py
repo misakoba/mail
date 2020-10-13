@@ -93,7 +93,7 @@ def create_app():  # pylint: disable=too-many-statements
         try:
             response.raise_for_status()
         except requests.HTTPError as error:
-            app.logger.exception(  # pylint: disable=no-member
+            app.logger.error(  # pylint: disable=no-member
                 f'Error in communicating with reCAPTCHA server: {error}')
             flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
                         'Error in communicating with reCAPTCHA server.')
@@ -173,7 +173,8 @@ def create_app():  # pylint: disable=too-many-statements
                 'text': flask.request.form['message']})
         try:
             response.raise_for_status()
-        except requests.HTTPError:
+        except requests.HTTPError as e:
+            flask.logger.error()
             flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
                         'An error was encountered when sending the message. '
                         'Please try again later.')
