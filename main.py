@@ -93,7 +93,7 @@ def create_app():  # pylint: disable=too-many-statements
         try:
             response.raise_for_status()
         except requests.HTTPError as error:
-            app.logger.error(  # pylint: disable=no-member
+            app.logger.exception(  # pylint: disable=no-member
                 f'Error in communicating with reCAPTCHA server: {error}')
             flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
                         'Error in communicating with reCAPTCHA server.')
@@ -162,18 +162,32 @@ def create_app():  # pylint: disable=too-many-statements
         }
 
     def _send_message_via_mailgun_api():
-        response = requests.post(
-            f"https://api.mailgun.net/v3/{app.config['MAILGUN_DOMAIN']}/"
-            'messages',
-            auth=('api', app.config['MAILGUN_API_KEY']),
-            data={'from': str(email.headerregistry.Address(
-                display_name=flask.request.form['name'],
-                addr_spec=flask.request.form['email'])),
-                'to': app.config['MESSAGE_TO_HEADER'],
-                'text': flask.request.form['message']})
+        post_kwargs = {
+            'url': 'https://api.mailgun.net/v3/'
+                   f"{app.config['MAILGUN_DOMAIN']}/messages",
+            'auth': ('api', app.config['MAILGUN_API_KEY']),
+            'data': {'from': (_create_from_header()),
+                     'to': app.config['MESSAGE_TO_HEADER'],
+                     'text': flask.request.form['message']},
+
+        }
+        response = requests.post(**post_kwargs)
+        _check_mailgun_send_response_status(post_kwargs, response)
+
+    def _create_from_header():
+        from_address = str(email.headerregistry.Address(
+            display_name=flask.request.form['name'],
+            addr_spec=flask.request.form['email']))
+        return from_address
+
+    def _check_mailgun_send_response_status(post_kwargs, response):
         try:
             response.raise_for_status()
-        except requests.HTTPError:
+        except requests.HTTPError as error:
+            app.logger.error(  # pylint: disable=no-member
+                f'Mailgun send message request encountered error: {error!r}\n'
+                f'POST sent with parameters: {post_kwargs}'
+            )
             flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
                         'An error was encountered when sending the message. '
                         'Please try again later.')

@@ -539,6 +539,40 @@ def test_mailgun_message_send_http_error_returns_500_error(client):
     }
 
 
+def test_mailgun_message_send_http_error_logs_error(caplog):
+    """Tests messages successfully sent."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(success=True)
+        mock_post.return_value.raise_for_status.side_effect = [
+            None, requests.HTTPError('Bad request.')]
+        client = _a_test_client_with(environment=_an_environment_with(
+            mailgun_domain='my_mailgun_domain',
+            mailgun_api_key='my_mailgun_api_key',
+            message_to_header='a@b.c'
+        ))
+        message_form = _a_message_form_with(
+            name='Mr. X',
+            email='mr.x@somedomain.com',
+            message="Hey, what's up?")
+
+        client.post('/messages', data=message_form)
+
+    error_logs = [record for record in caplog.records
+                  if record.levelname == 'ERROR']
+    assert len(error_logs) == 1
+    record = error_logs[0]
+    message = record.getMessage()
+    assert message.startswith(
+        "Mailgun send message request encountered error: "
+        "HTTPError('Bad request.')")
+    assert 'https://api.mailgun.net/v3/my_mailgun_domain/messages' in message
+    assert 'my_mailgun_api_key' in message
+    assert 'a@b.c' in message
+    assert '"Mr. X" <mr.x@somedomain.com>' in message
+    assert "Hey, what's up?" in message
+
+
 def test_app_creation_failed_no_recaptcha_secret(subtests):
     """Test exception raised when reCAPTCHA secret is undefined."""
     for subcase, environ in [
