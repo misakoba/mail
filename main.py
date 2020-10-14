@@ -16,8 +16,12 @@ RECAPTCHA_DEFAULT_EXPECTED_ACTION = 'submit'
 RECAPTCHA_DEFAULT_SCORE_THRESHOLD = 0.5
 SEND_FORM_REQUIRED_FIELDS = {'g-recaptcha-response', 'name', 'email',
                              'message'}
+CONFIG_VALUES = {'RECAPTCHA_SECRET', 'MAILGUN_API_KEY', 'MAILGUN_DOMAIN',
+                 'MESSAGE_TO', 'MESSAGE_SUBJECT'}
 REQUIRED_CONFIG_VALUES = {'RECAPTCHA_SECRET', 'MAILGUN_API_KEY',
-                          'MAILGUN_DOMAIN', 'MESSAGE_TO_HEADER'}
+                          'MAILGUN_DOMAIN', 'MESSAGE_TO'}
+
+assert REQUIRED_CONFIG_VALUES <= CONFIG_VALUES
 
 
 class MisakobaMailError(Exception):
@@ -46,7 +50,7 @@ def _configure(app):
     config = app.config
     _populate_config_from_environment(config)
     _check_for_required_config_values(config)
-    _check_message_to_header(config['MESSAGE_TO_HEADER'])
+    _check_message_to(config['MESSAGE_TO'])
 
 
 def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
@@ -168,17 +172,25 @@ def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
         }
 
     def _send_message_via_mailgun_api():
+        post_kwargs = _mailgun_message_post_kwargs()
+        response = requests.post(**post_kwargs)
+        _check_mailgun_send_response_status(post_kwargs, response)
+
+    def _mailgun_message_post_kwargs():
         post_kwargs = {
             'url': 'https://api.mailgun.net/v3/'
                    f"{app.config['MAILGUN_DOMAIN']}/messages",
             'auth': ('api', app.config['MAILGUN_API_KEY']),
             'data': {'from': (_create_from_header()),
-                     'to': app.config['MESSAGE_TO_HEADER'],
+                     'to': app.config['MESSAGE_TO'],
                      'text': flask.request.form['message']},
 
         }
-        response = requests.post(**post_kwargs)
-        _check_mailgun_send_response_status(post_kwargs, response)
+
+        if subject := app.config.get('MESSAGE_SUBJECT'):
+            post_kwargs['data']['subject'] = subject
+
+        return post_kwargs
 
     def _create_from_header():
         from_address = str(email.headerregistry.Address(
@@ -212,7 +224,7 @@ def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
 
 
 def _populate_config_from_environment(config):
-    for config_value_name in REQUIRED_CONFIG_VALUES:
+    for config_value_name in CONFIG_VALUES:
         config[config_value_name] = os.environ.get(config_value_name)
 
 
@@ -224,19 +236,19 @@ def _check_for_required_config_values(config):
                 'configuration value.')
 
 
-def _check_message_to_header(raw_message_to_header):
+def _check_message_to(raw_message_to):
     try:
         standardized_to_header = email.policy.strict.header_factory(
-            'to', raw_message_to_header)
+            'to', raw_message_to)
     except IndexError as error:
         raise InvalidMessageToHeader(
-            "Could not parse MESSAGE_TO_HEADER config value "
-            f"{raw_message_to_header!r}.") from error
+            "Could not parse MESSAGE_TO config value "
+            f"{raw_message_to!r}.") from error
 
     if defects := standardized_to_header.defects:
         defects_listing = '\n'.join(f'- {defect}' for defect in defects)
         raise InvalidMessageToHeader(
-            f'MESSAGE_TO_HEADER config value {raw_message_to_header!r} has '
+            f'MESSAGE_TO config value {raw_message_to!r} has '
             f'the following defects:\n{defects_listing}')
 
 

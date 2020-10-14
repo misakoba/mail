@@ -46,7 +46,7 @@ def test_successful_send_message(client, subtests):
     ]
     mailgun_api_keys = ['some_mailgun_api_key', 'another_mailgun_api_key']
     mailgun_domains = ['some_mailgun_domain', 'another_mailgun_domain']
-    message_to_headers = ['a@b.c', 'foo@bar.baz']
+    message_tos = ['a@b.c', 'foo@bar.baz']
     expected_froms = [
        '"Mr. X" <mr.x@somedomain.com>',
        'Princess Peach <peach@royal.gov.mk>',
@@ -54,22 +54,22 @@ def test_successful_send_message(client, subtests):
     for (message_form,
          mailgun_api_key,
          mailgun_domain,
-         message_to_header,
+         message_to,
          expected_from) in zip(message_forms,
                                mailgun_api_keys,
                                mailgun_domains,
-                               message_to_headers,
+                               message_tos,
                                expected_froms):
         with subtests.test(message_form=message_form,
                            mailgun_api_key=mailgun_api_key,
                            mailgun_domain=mailgun_domain,
-                           message_to_header=message_to_header,
+                           message_to=message_to,
                            expected_from=expected_from):
             client = _a_test_client_with(
                 environment=_an_environment_with(
                     mailgun_api_key=mailgun_api_key,
                     mailgun_domain=mailgun_domain,
-                    message_to_header=message_to_header))
+                    message_to=message_to))
             with mock.patch('requests.post', autospec=True) as mock_post:
                 mock_json = mock_post.return_value.json
                 mock_json.return_value = _a_site_verify_response_with(
@@ -94,12 +94,34 @@ def test_successful_send_message(client, subtests):
                     auth=('api', mailgun_api_key),
                     data={
                         'from': expected_from,
-                        'to': message_to_header,
+                        'to': message_to,
                         'text': message_form['message'],
                     }),
             ])
             assert response.status_code == http.HTTPStatus.OK
             assert response.data == b'Successfully sent message.'
+
+
+def test_message_subject_sent_if_defined():
+    """Tests messages successfully sent."""
+    client = _a_test_client_with(
+         environment=_an_environment_with(message_subject='A message for you'))
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.return_value = _a_site_verify_response_with(
+            success=True)
+
+        client.post('/messages', data=_a_message_form())
+
+    mock_post.assert_called_with(
+        mock.ANY,
+        auth=mock.ANY,
+        data={
+            'from': mock.ANY,
+            'to': mock.ANY,
+            'subject': 'A message for you',
+            'text': mock.ANY,
+        })
 
 
 def test_send_message_propagates_remote_ip(client, subtests):
@@ -553,7 +575,7 @@ def test_mailgun_message_send_http_error_logs_error(caplog):
         client = _a_test_client_with(environment=_an_environment_with(
             mailgun_domain='my_mailgun_domain',
             mailgun_api_key='my_mailgun_api_key',
-            message_to_header='a@b.c'
+            message_to='a@b.c'
         ))
         message_form = _a_message_form_with(
             name='Mr. X',
@@ -623,38 +645,38 @@ def test_app_creation_failed_no_mailgun_domain(subtests):
                     main.create_app()
 
 
-def test_app_creation_failed_no_message_to_header(subtests):
-    """Test exception raised when config val MESSAGE_TO_HEADER is undefined."""
+def test_app_creation_failed_no_message_to(subtests):
+    """Test exception raised when config val MESSAGE_TO is undefined."""
     for subcase, environ in [
-        ('unset', _an_environment_without('MESSAGE_TO_HEADER')),
-        ('empty', _an_environment_with(message_to_header='')),
+        ('unset', _an_environment_without('MESSAGE_TO')),
+        ('empty', _an_environment_with(message_to='')),
     ]:
         with subtests.test(subcase=subcase):
             with mock.patch.dict('os.environ', environ, clear=True):
                 with pytest.raises(
                         main.MissingRequiredConfigValueError,
                         match=('Cannot create web application without '
-                               'MESSAGE_TO_HEADER configuration value.')):
+                               'MESSAGE_TO configuration value.')):
                     main.create_app()
 
 
-def test_app_creation_failed_message_to_header_parse_failure(subtests):
-    """Test exception raised when MESSAGE_TO_HEADER is unparsable."""
+def test_app_creation_failed_message_to_parse_failure(subtests):
+    """Test exception raised when MESSAGE_TO is unparsable."""
     to_headers = ['a@', 'foo@']
     for to_header in to_headers:
         with subtests.test(to_header=to_header):
             with mock.patch.dict('os.environ',
                                  _an_environment_with(
-                                     message_to_header=to_header),
+                                     message_to=to_header),
                                  clear=True):
                 with pytest.raises(
                         main.InvalidMessageToHeader,
-                        match="Could not parse MESSAGE_TO_HEADER config value "
+                        match="Could not parse MESSAGE_TO config value "
                               f"'{to_header}'."):
                     main.create_app()
 
 
-def test_app_creation_failed_no_message_to_header_has_defects(subtests):
+def test_app_creation_failed_no_message_to_has_defects(subtests):
     """Test exception raised when Mailgun Domain is undefined."""
     for to_header, defects_listing in [
         ('a', '- addr-spec local part with no domain'),
@@ -665,11 +687,11 @@ def test_app_creation_failed_no_message_to_header_has_defects(subtests):
                            defects_listing=defects_listing):
             with mock.patch.dict('os.environ',
                                  _an_environment_with(
-                                     message_to_header=to_header),
+                                     message_to=to_header),
                                  clear=True):
                 with pytest.raises(
                         main.InvalidMessageToHeader,
-                        match=f"MESSAGE_TO_HEADER config value '{to_header}' "
+                        match=f"MESSAGE_TO config value '{to_header}' "
                               'has the following defects:\n'
                               f'{defects_listing}'):
                     main.create_app()
@@ -753,13 +775,16 @@ def _an_environment_with(*,
                          recaptcha_secret='some_secret',
                          mailgun_api_key='some_mailgun_api_key',
                          mailgun_domain='some_mailgun_domain',
-                         message_to_header='someone@somewhere'):
-    return {
-        'RECAPTCHA_SECRET': recaptcha_secret,
-        'MAILGUN_API_KEY': mailgun_api_key,
-        'MAILGUN_DOMAIN': mailgun_domain,
-        'MESSAGE_TO_HEADER': message_to_header,
-    }
+                         message_to='someone@somewhere',
+                         message_subject=None):
+    env = [
+        ('RECAPTCHA_SECRET', recaptcha_secret),
+        ('MAILGUN_API_KEY', mailgun_api_key),
+        ('MAILGUN_DOMAIN', mailgun_domain),
+        ('MESSAGE_TO', message_to),
+        ('MESSAGE_SUBJECT', message_subject),
+    ]
+    return {var: val for var, val in env if val is not None}
 
 
 if __name__ == '__main__':
