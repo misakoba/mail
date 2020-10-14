@@ -18,13 +18,17 @@ def _a_test_client():
 
 def _a_test_client_with(*, environment=None):
     """Creates and returns the default Flask test client fixture."""
-    if environment is None:
-        environment = _an_environment()
-
-    with mock.patch.dict('os.environ', environment):
-        app = main.create_app()
+    app = _an_app_with(environment=environment)
     app.testing = True
     return app.test_client()
+
+
+def _an_app_with(*, environment=None):
+    if environment is None:
+        environment = _an_environment()
+    with mock.patch.dict('os.environ', environment):
+        app = main.create_app()
+    return app
 
 
 def test_successful_send_message(client, subtests):

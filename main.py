@@ -46,7 +46,7 @@ def _configure(app):
     config = app.config
     _populate_config_from_environment(config)
     _check_for_required_config_values(config)
-    _standardized_message_to_header(config['MESSAGE_TO_HEADER'])
+    _check_message_to_header(config['MESSAGE_TO_HEADER'])
 
 
 def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
@@ -224,7 +224,7 @@ def _check_for_required_config_values(config):
                 'configuration value.')
 
 
-def _standardized_message_to_header(raw_message_to_header):
+def _check_message_to_header(raw_message_to_header):
     try:
         standardized_to_header = email.policy.strict.header_factory(
             'to', raw_message_to_header)
@@ -238,8 +238,6 @@ def _standardized_message_to_header(raw_message_to_header):
         raise InvalidMessageToHeader(
             f'MESSAGE_TO_HEADER config value {raw_message_to_header!r} has '
             f'the following defects:\n{defects_listing}')
-
-    return standardized_to_header
 
 
 def create_app_or_die():
