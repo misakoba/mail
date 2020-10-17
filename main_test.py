@@ -595,8 +595,8 @@ def test_mailgun_message_send_http_error_logs_error(caplog):
     assert 'https://api.mailgun.net/v3/my_mailgun_domain/messages' in message
     assert 'my_mailgun_api_key' in message
     assert 'a@b.c' in message
-    assert '"Mr. X" <mr.x@somedomain.com>' in message
-    assert "Hey, what's up?" in message
+    assert '"Mr. X" <mr.x@somedomain.com>' not in message
+    assert "Hey, what's up?" not in message
 
 
 def test_app_creation_failed_no_recaptcha_secret(subtests):

@@ -204,11 +204,18 @@ def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
         except requests.HTTPError as error:
             app.logger.error(  # pylint: disable=no-member
                 f'Mailgun send message request encountered error: {error!r}\n'
-                f'POST sent with parameters: {post_kwargs}'
+                f'POST sent with parameters: {_pii_redacted(post_kwargs)}'
             )
             flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
                         'An error was encountered when sending the message. '
                         'Please try again later.')
+
+    def _pii_redacted(post_kwargs):
+        redacted_kwargs = {k: v for k, v in post_kwargs.items() if k != 'data'}
+        redacted_kwargs['data'] = {
+            key: '<REDACTED>' if key in {'from', 'text'} else value
+            for key, value in post_kwargs['data'].items()}
+        return redacted_kwargs
 
     @app.errorhandler(werkzeug.exceptions.HTTPException)
     def handle_exception(error):  # pylint: disable=unused-variable
