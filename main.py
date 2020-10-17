@@ -181,7 +181,7 @@ def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
             'url': 'https://api.mailgun.net/v3/'
                    f"{app.config['MAILGUN_DOMAIN']}/messages",
             'auth': ('api', app.config['MAILGUN_API_KEY']),
-            'data': {'from': (_create_from_header()),
+            'data': {'from': _create_from_header(),
                      'to': app.config['MESSAGE_TO'],
                      'text': flask.request.form['message']},
 
