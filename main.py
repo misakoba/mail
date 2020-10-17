@@ -34,7 +34,11 @@ class MissingRequiredConfigValueError(MisakobaMailError):
 
 
 class InvalidMessageToHeader(MisakobaMailError):
-    """Error if the Message's To Header is invalid"""
+    """Error when the Message's 'to' Header is invalid"""
+
+
+class InvalidLoggingLevel(MisakobaMailError):
+    """Error if the 'LOGGING_LEVEL' config value is invalid"""
 
 
 def create_app():
@@ -249,7 +253,12 @@ def _configure_logging_level_from_env(config):
         'NOTSET': logging.NOTSET,
     }
     if logging_level_name := os.environ.get('LOGGING_LEVEL'):
-        config['LOGGING_LEVEL'] = logging_levels_by_name[logging_level_name]
+        logging_level = logging_levels_by_name.get(logging_level_name)
+        if logging_level is not None:
+            config['LOGGING_LEVEL'] = logging_level
+        else:
+            raise InvalidLoggingLevel(
+                f"Invalid LOGGING_LEVEL {logging_level_name!r} specified.")
 
 
 def _check_for_required_config_values(config):

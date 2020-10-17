@@ -710,12 +710,22 @@ def test_app_configured_for_logging_level(subtests):
     ]:
         with subtests.test(str_value=logging_level_name,
                            exp_config_val=logging_level_value):
-            with mock.patch.dict('os.environ',
-                                 _an_environment_with(
-                                     logging_level=logging_level_name)):
-                app = main.create_app()
+            env = _an_environment_with(logging_level=logging_level_name)
+            app = _an_app_with(environment=env)
 
             assert app.config['LOGGING_LEVEL'] == logging_level_value
+
+
+def test_invalid_logging_level_env_variable(subtests):
+    """Test that InvalidLoggingLevel is raised with invalid LOGGING_LEVEL."""
+    for invalid_logging_level in ['FOO', 'BAR']:
+        with subtests.test(invalid_logging_level=invalid_logging_level):
+            env = _an_environment_with(logging_level=invalid_logging_level)
+            with pytest.raises(
+                    main.InvalidLoggingLevel,
+                    match=f"Invalid LOGGING_LEVEL '{invalid_logging_level}' "
+                          f"specified."):
+                _an_app_with(environment=env)
 
 
 def test_create_app_or_die_graceful_death_on_creation_failure():
