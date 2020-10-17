@@ -61,6 +61,55 @@ def _configure(app):
         app.logger.setLevel(logging_level)
 
 
+def _populate_config_from_environment(config):
+    str_config_values = [config_val for config_val in CONFIG_VALUES
+                         if config_val != 'LOGGING_ERROR']
+    for config_value_name in str_config_values:
+        config[config_value_name] = os.environ.get(config_value_name)
+    _configure_logging_level_from_env(config)
+
+
+def _configure_logging_level_from_env(config):
+    logging_levels_by_name = {
+        'CRITICAL': logging.CRITICAL,
+        'ERROR': logging.ERROR,
+        'WARNING': logging.WARNING,
+        'INFO': logging.INFO,
+        'DEBUG': logging.DEBUG,
+        'NOTSET': logging.NOTSET,
+    }
+    if logging_level_name := os.environ.get('LOGGING_LEVEL'):
+        logging_level = logging_levels_by_name.get(logging_level_name)
+        if logging_level is None:
+            raise InvalidLoggingLevel(
+                f"Invalid LOGGING_LEVEL {logging_level_name!r} specified.")
+        config['LOGGING_LEVEL'] = logging_level
+
+
+def _check_for_required_config_values(config):
+    for config_value_name in REQUIRED_CONFIG_VALUES:
+        if not config[config_value_name]:
+            raise MissingRequiredConfigValueError(
+                f'Cannot create web application without {config_value_name} '
+                'configuration value.')
+
+
+def _check_message_to(raw_message_to):
+    try:
+        standardized_to_header = email.policy.strict.header_factory(
+            'to', raw_message_to)
+    except IndexError as error:
+        raise InvalidMessageToHeader(
+            "Could not parse MESSAGE_TO config value "
+            f"{raw_message_to!r}.") from error
+
+    if defects := standardized_to_header.defects:
+        defects_listing = '\n'.join(f'- {defect}' for defect in defects)
+        raise InvalidMessageToHeader(
+            f'MESSAGE_TO config value {raw_message_to!r} has '
+            f'the following defects:\n{defects_listing}')
+
+
 def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
     @app.route('/messages', methods=['POST'])
     def send_message():  # pylint: disable=unused-variable
@@ -236,55 +285,6 @@ def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
         })
         response.content_type = 'application/json'
         return response
-
-
-def _populate_config_from_environment(config):
-    str_config_values = [config_val for config_val in CONFIG_VALUES
-                         if config_val != 'LOGGING_ERROR']
-    for config_value_name in str_config_values:
-        config[config_value_name] = os.environ.get(config_value_name)
-    _configure_logging_level_from_env(config)
-
-
-def _configure_logging_level_from_env(config):
-    logging_levels_by_name = {
-        'CRITICAL': logging.CRITICAL,
-        'ERROR': logging.ERROR,
-        'WARNING': logging.WARNING,
-        'INFO': logging.INFO,
-        'DEBUG': logging.DEBUG,
-        'NOTSET': logging.NOTSET,
-    }
-    if logging_level_name := os.environ.get('LOGGING_LEVEL'):
-        logging_level = logging_levels_by_name.get(logging_level_name)
-        if logging_level is None:
-            raise InvalidLoggingLevel(
-                f"Invalid LOGGING_LEVEL {logging_level_name!r} specified.")
-        config['LOGGING_LEVEL'] = logging_level
-
-
-def _check_for_required_config_values(config):
-    for config_value_name in REQUIRED_CONFIG_VALUES:
-        if not config[config_value_name]:
-            raise MissingRequiredConfigValueError(
-                f'Cannot create web application without {config_value_name} '
-                'configuration value.')
-
-
-def _check_message_to(raw_message_to):
-    try:
-        standardized_to_header = email.policy.strict.header_factory(
-            'to', raw_message_to)
-    except IndexError as error:
-        raise InvalidMessageToHeader(
-            "Could not parse MESSAGE_TO config value "
-            f"{raw_message_to!r}.") from error
-
-    if defects := standardized_to_header.defects:
-        defects_listing = '\n'.join(f'- {defect}' for defect in defects)
-        raise InvalidMessageToHeader(
-            f'MESSAGE_TO config value {raw_message_to!r} has '
-            f'the following defects:\n{defects_listing}')
 
 
 def create_app_or_die():
