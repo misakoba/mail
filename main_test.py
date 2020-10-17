@@ -714,6 +714,9 @@ def test_app_configured_for_logging_level(subtests):
             app = _an_app_with(environment=env)
 
             assert app.config['LOGGING_LEVEL'] == logging_level_value
+            # pylint: disable=no-member
+            assert ((logging_level_value == logging.NOTSET) or
+                    (app.logger.getEffectiveLevel() == logging_level_value))
 
 
 def test_invalid_logging_level_env_variable(subtests):

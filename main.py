@@ -57,6 +57,9 @@ def _configure(app):
     _check_for_required_config_values(config)
     _check_message_to(config['MESSAGE_TO'])
 
+    if (logging_level := app.config.get('LOGGING_LEVEL')) is not None:
+        app.logger.setLevel(logging_level)
+
 
 def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
     @app.route('/messages', methods=['POST'])
