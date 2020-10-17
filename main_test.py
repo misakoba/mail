@@ -3,6 +3,7 @@
 import collections
 import http
 import json
+import logging
 from unittest import mock
 
 import pytest
@@ -697,6 +698,26 @@ def test_app_creation_failed_no_message_to_has_defects(subtests):
                     main.create_app()
 
 
+def test_app_configured_for_logging_level(subtests):
+    """Test that the logging level can be set from an environment variable."""
+    for logging_level_name, logging_level_value in [
+        ('CRITICAL', logging.CRITICAL),
+        ('ERROR', logging.ERROR),
+        ('WARNING', logging.WARNING),
+        ('INFO', logging.INFO),
+        ('DEBUG', logging.DEBUG),
+        ('NOTSET', logging.NOTSET),
+    ]:
+        with subtests.test(str_value=logging_level_name,
+                           exp_config_val=logging_level_value):
+            with mock.patch.dict('os.environ',
+                                 _an_environment_with(
+                                     logging_level=logging_level_name)):
+                app = main.create_app()
+
+            assert app.config['LOGGING_LEVEL'] == logging_level_value
+
+
 def test_create_app_or_die_graceful_death_on_creation_failure():
     """Test that a SystemExit is raised on failure create to main app."""
     with mock.patch.dict('os.environ',
@@ -776,13 +797,15 @@ def _an_environment_with(*,
                          mailgun_api_key='some_mailgun_api_key',
                          mailgun_domain='some_mailgun_domain',
                          message_to='someone@somewhere',
-                         message_subject=None):
+                         message_subject=None,
+                         logging_level=None):
     env = [
         ('RECAPTCHA_SECRET', recaptcha_secret),
         ('MAILGUN_API_KEY', mailgun_api_key),
         ('MAILGUN_DOMAIN', mailgun_domain),
         ('MESSAGE_TO', message_to),
         ('MESSAGE_SUBJECT', message_subject),
+        ('LOGGING_LEVEL', logging_level),
     ]
     return {var: val for var, val in env if val is not None}
 

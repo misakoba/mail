@@ -4,6 +4,7 @@ import email.headerregistry
 import email.policy
 import http
 import json
+import logging
 import sys
 import os
 
@@ -231,8 +232,24 @@ def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
 
 
 def _populate_config_from_environment(config):
-    for config_value_name in CONFIG_VALUES:
+    str_config_values = [config_val for config_val in CONFIG_VALUES
+                         if config_val != 'LOGGING_ERROR']
+    for config_value_name in str_config_values:
         config[config_value_name] = os.environ.get(config_value_name)
+    _configure_logging_level_from_env(config)
+
+
+def _configure_logging_level_from_env(config):
+    logging_levels_by_name = {
+        'CRITICAL': logging.CRITICAL,
+        'ERROR': logging.ERROR,
+        'WARNING': logging.WARNING,
+        'INFO': logging.INFO,
+        'DEBUG': logging.DEBUG,
+        'NOTSET': logging.NOTSET,
+    }
+    if logging_level_name := os.environ.get('LOGGING_LEVEL'):
+        config['LOGGING_LEVEL'] = logging_levels_by_name[logging_level_name]
 
 
 def _check_for_required_config_values(config):
