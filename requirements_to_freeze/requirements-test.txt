@@ -1,2 +1,5 @@
 pytest
 pytest-subtests
+flake8
+pylint
+mypy

@@ -731,6 +731,28 @@ def test_invalid_logging_level_env_variable(subtests):
                 _an_app_with(environment=env)
 
 
+def test_google_cloud_logging_enabled_by_env_variable():
+    """Test that Google Cloud Logging is configured when enabled by env."""
+    env = _an_environment_with(use_google_cloud_logging='1')
+
+    with mock.patch('google.cloud.logging.Client',
+                    autospec=True) as mock_client:
+        _an_app_with(environment=env)
+
+    mock_client.assert_has_calls([mock.call(), mock.call().setup_logging()])
+
+
+def test_google_cloud_logging_not_enabled_when_not_configured():
+    """Test that Google Cloud Logging is configured when enabled by env."""
+    env = _an_environment_without('USE_GOOGLE_CLOUD_LOGGING')
+
+    with mock.patch('google.cloud.logging.Client',
+                    autospec=True) as mock_client:
+        _an_app_with(environment=env)
+
+    mock_client.assert_not_called()
+
+
 def test_create_app_or_die_graceful_death_on_creation_failure():
     """Test that a SystemExit is raised on failure create to main app."""
     with mock.patch.dict('os.environ',
@@ -811,7 +833,8 @@ def _an_environment_with(*,
                          mailgun_domain='some_mailgun_domain',
                          message_to='someone@somewhere',
                          message_subject=None,
-                         logging_level=None):
+                         logging_level=None,
+                         use_google_cloud_logging=None):
     env = [
         ('RECAPTCHA_SECRET', recaptcha_secret),
         ('MAILGUN_API_KEY', mailgun_api_key),
@@ -819,6 +842,7 @@ def _an_environment_with(*,
         ('MESSAGE_TO', message_to),
         ('MESSAGE_SUBJECT', message_subject),
         ('LOGGING_LEVEL', logging_level),
+        ('USE_GOOGLE_CLOUD_LOGGING', use_google_cloud_logging),
     ]
     return {var: val for var, val in env if val is not None}
 

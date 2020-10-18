@@ -9,6 +9,7 @@ import sys
 import os
 
 import flask
+import google.cloud.logging  # type: ignore
 import werkzeug.exceptions
 import flask_cors  # type: ignore
 import requests
@@ -17,8 +18,21 @@ RECAPTCHA_DEFAULT_EXPECTED_ACTION = 'submit'
 RECAPTCHA_DEFAULT_SCORE_THRESHOLD = 0.5
 SEND_FORM_REQUIRED_FIELDS = {'g-recaptcha-response', 'name', 'email',
                              'message'}
-CONFIG_VALUES = {'RECAPTCHA_SECRET', 'MAILGUN_API_KEY', 'MAILGUN_DOMAIN',
-                 'MESSAGE_TO', 'MESSAGE_SUBJECT'}
+CONFIG_VALUES = {
+    'RECAPTCHA_SECRET',
+    'MAILGUN_API_KEY',
+    'MAILGUN_DOMAIN',
+    'MESSAGE_TO',
+    'MESSAGE_SUBJECT',
+    'LOGGING_LEVEL',
+    'USE_GOOGLE_CLOUD_LOGGING',
+}
+
+STR_CONFIG_VALUES = {'RECAPTCHA_SECRET', 'MAILGUN_API_KEY', 'MAILGUN_DOMAIN',
+                     'MESSAGE_TO', 'MESSAGE_SUBJECT'}
+
+assert STR_CONFIG_VALUES <= CONFIG_VALUES
+
 REQUIRED_CONFIG_VALUES = {'RECAPTCHA_SECRET', 'MAILGUN_API_KEY',
                           'MAILGUN_DOMAIN', 'MESSAGE_TO'}
 
@@ -57,15 +71,21 @@ def _configure(app):
     _check_for_required_config_values(config)
     _check_message_to(config['MESSAGE_TO'])
 
+    if config.get('USE_GOOGLE_CLOUD_LOGGING'):
+        logging_client = google.cloud.logging.Client()
+        logging_client.setup_logging()
+
     if (logging_level := app.config.get('LOGGING_LEVEL')) is not None:
         app.logger.setLevel(logging_level)
 
 
 def _populate_config_from_environment(config):
-    str_config_values = [config_val for config_val in CONFIG_VALUES
-                         if config_val != 'LOGGING_ERROR']
-    for config_value_name in str_config_values:
+    for config_value_name in STR_CONFIG_VALUES:
         config[config_value_name] = os.environ.get(config_value_name)
+
+    if os.environ.get('USE_GOOGLE_CLOUD_LOGGING'):
+        config['USE_GOOGLE_CLOUD_LOGGING'] = True
+
     _configure_logging_level_from_env(config)
 
 
