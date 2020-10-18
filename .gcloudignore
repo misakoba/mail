@@ -13,13 +13,25 @@
 .git
 .gitignore
 
-# Python pycache:
-__pycache__/
+# Other hidden directories
+.github/
+.mypy_cache/
+.pytest_cache/
+
 # Ignored by the build system
 /setup.cfg
 
 # Exclude patterns from .gitignore:
 #!include:.gitignore
 
-# Unfrozen, direct requirements
+# Ignore everything but the frozen run requirements
 requirements_to_freeze/
+requirements-test.txt
+
+# Testing code and config
+**/*_test.py
+pytest.ini
+
+# Misc. top level repository
+README.md
+template_app.yaml

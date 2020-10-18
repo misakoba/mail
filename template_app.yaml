@@ -1,0 +1,19 @@
+# A template app.yaml file for Google App Engine deployment.
+# Create a real app.yaml from this file, BUT DON'T COMMIT IT WITH YOUR SECRETS!!!
+
+runtime: python38
+
+entrypoint: gunicorn --bind=":${PORT}" --workers=1 'main:create_app_or_die()'
+
+env_variables:
+  # Required
+  RECAPTCHA_SECRET:  # Secret, get from https://www.google.com/recaptcha/admin/site/<your site>/settings
+  MAILGUN_API_KEY:   # Secret, get from https://app.mailgun.com/app/account/security/api_keys
+  MAILGUN_DOMAIN:    # A Mailgun domain you own at https://app.mailgun.com/app/sending/domains/
+  MESSAGE_TO:        # Your recipient address, like "Foo Bar <foo.bar@baz.qux>"
+
+  # Optional
+  # MESSAGE_SUBJECT:           - Subject added to all sent messages; if omitted, no subject header will be used
+  # USE_GOOGLE_CLOUD_LOGGING:  - Set to a non-empty value to use the Google Cloud Logging service
+  # LOGGING_LEVEL              - Logging level of the app's logger.
+  #                              Choose from {CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET}
