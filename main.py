@@ -37,7 +37,7 @@ class InvalidMessageToHeader(MisakobaMailError):
     """Error when the Message's 'to' Header is invalid"""
 
 
-class InvalidLoggingLevel(MisakobaMailError):
+class InvalidLoggingLevelError(MisakobaMailError):
     """Error if the 'LOGGING_LEVEL' config value is invalid"""
 
 
@@ -81,7 +81,7 @@ def _configure_logging_level_from_env(config):
     if logging_level_name := os.environ.get('LOGGING_LEVEL'):
         logging_level = logging_levels_by_name.get(logging_level_name)
         if logging_level is None:
-            raise InvalidLoggingLevel(
+            raise InvalidLoggingLevelError(
                 f"Invalid LOGGING_LEVEL {logging_level_name!r} specified.")
         config['LOGGING_LEVEL'] = logging_level
 

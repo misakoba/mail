@@ -720,12 +720,12 @@ def test_app_configured_for_logging_level(subtests):
 
 
 def test_invalid_logging_level_env_variable(subtests):
-    """Test that InvalidLoggingLevel is raised with invalid LOGGING_LEVEL."""
+    """Test that InvalidLoggingLevelError raised on invalid LOGGING_LEVEL."""
     for invalid_logging_level in ['FOO', 'BAR']:
         with subtests.test(invalid_logging_level=invalid_logging_level):
             env = _an_environment_with(logging_level=invalid_logging_level)
             with pytest.raises(
-                    main.InvalidLoggingLevel,
+                    main.InvalidLoggingLevelError,
                     match=f"Invalid LOGGING_LEVEL '{invalid_logging_level}' "
                           f"specified."):
                 _an_app_with(environment=env)
