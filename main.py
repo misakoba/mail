@@ -10,9 +10,10 @@ import os
 
 import flask
 import google.cloud.logging  # type: ignore
-import werkzeug.exceptions
 import flask_cors  # type: ignore
 import requests
+import werkzeug.exceptions
+import werkzeug.middleware.proxy_fix
 
 RECAPTCHA_DEFAULT_EXPECTED_ACTION = 'submit'
 RECAPTCHA_DEFAULT_SCORE_THRESHOLD = 0.5
@@ -26,6 +27,7 @@ CONFIG_VALUES = {
     'MESSAGE_SUBJECT',
     'LOGGING_LEVEL',
     'USE_GOOGLE_CLOUD_LOGGING',
+    'USE_PROXY_FIX',
 }
 
 STR_CONFIG_VALUES = {'RECAPTCHA_SECRET', 'MAILGUN_API_KEY', 'MAILGUN_DOMAIN',
@@ -47,12 +49,34 @@ class MissingRequiredConfigValueError(MisakobaMailError):
     """Error for MissingConfigValue."""
 
 
-class InvalidMessageToHeader(MisakobaMailError):
-    """Error when the Message's 'to' Header is invalid"""
+class InvalidMessageToError(MisakobaMailError):
+    """Error when the Message's 'to' Header is invalid."""
 
 
-class InvalidLoggingLevelError(MisakobaMailError):
-    """Error if the 'LOGGING_LEVEL' config value is invalid"""
+class InvalidEnvironmentConfigValueError(MisakobaMailError):
+    """Error for invalid config values derived from the environment."""
+    def __init__(self, config_value_name, value):
+        super().__init__()
+        self.config_value_name = config_value_name
+        self.value = value
+
+    def __str__(self):
+        return (f'Invalid {self.config_value_name} value {self.value!r} '
+                f'specified.')
+
+
+class InvalidLoggingLevelError(InvalidEnvironmentConfigValueError):
+    """Error if the 'LOGGING_LEVEL' config value is invalid."""
+
+    def __init__(self, value):
+        super().__init__('LOGGING_LEVEL', value)
+
+
+class InvalidProxyFixXForError(InvalidEnvironmentConfigValueError):
+    """Error if the 'PROXY_FIX_X_FOR' config value is invalid."""
+
+    def __init__(self, value):
+        super().__init__('PROXY_FIX_X_FOR', value)
 
 
 def create_app():
@@ -61,6 +85,7 @@ def create_app():
     app = flask.Flask(__name__)
     flask_cors.CORS(app)
     _configure(app)
+
     _add_handlers(app)
     return app
 
@@ -78,13 +103,26 @@ def _configure(app):
     if (logging_level := app.config.get('LOGGING_LEVEL')) is not None:
         app.logger.setLevel(logging_level)
 
+    if config['USE_PROXY_FIX']:
+        app.wsgi_app = werkzeug.middleware.proxy_fix.ProxyFix(
+            app.wsgi_app, x_for=config['PROXY_FIX_X_FOR'])
+
 
 def _populate_config_from_environment(config):
     for config_value_name in STR_CONFIG_VALUES:
         config[config_value_name] = os.environ.get(config_value_name)
 
-    if os.environ.get('USE_GOOGLE_CLOUD_LOGGING'):
-        config['USE_GOOGLE_CLOUD_LOGGING'] = True
+    config['USE_GOOGLE_CLOUD_LOGGING'] = bool(
+        os.environ.get('USE_GOOGLE_CLOUD_LOGGING'))
+
+    if use_proxy_fix := bool(os.environ.get('USE_PROXY_FIX')):
+        proxy_fix_x_for = os.environ.get('PROXY_FIX_X_FOR', 1)
+        try:
+            config['PROXY_FIX_X_FOR'] = int(proxy_fix_x_for)
+        except ValueError as error:
+            raise InvalidProxyFixXForError(proxy_fix_x_for) from error
+
+    config['USE_PROXY_FIX'] = use_proxy_fix
 
     _configure_logging_level_from_env(config)
 
@@ -101,8 +139,7 @@ def _configure_logging_level_from_env(config):
     if logging_level_name := os.environ.get('LOGGING_LEVEL'):
         logging_level = logging_levels_by_name.get(logging_level_name)
         if logging_level is None:
-            raise InvalidLoggingLevelError(
-                f"Invalid LOGGING_LEVEL {logging_level_name!r} specified.")
+            raise InvalidLoggingLevelError(logging_level_name)
         config['LOGGING_LEVEL'] = logging_level
 
 
@@ -119,13 +156,13 @@ def _check_message_to(raw_message_to):
         standardized_to_header = email.policy.strict.header_factory(
             'to', raw_message_to)
     except IndexError as error:
-        raise InvalidMessageToHeader(
+        raise InvalidMessageToError(
             "Could not parse MESSAGE_TO config value "
             f"{raw_message_to!r}.") from error
 
     if defects := standardized_to_header.defects:
         defects_listing = '\n'.join(f'- {defect}' for defect in defects)
-        raise InvalidMessageToHeader(
+        raise InvalidMessageToError(
             f'MESSAGE_TO config value {raw_message_to!r} has '
             f'the following defects:\n{defects_listing}')
 

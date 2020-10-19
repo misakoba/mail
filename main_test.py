@@ -141,6 +141,32 @@ def test_send_message_propagates_remote_ip(client, subtests):
                         })
 
 
+def test_send_message_propagates_remote_ip_behind_proxy(subtests):
+    """Tests remote IP address sent to reCAPTCHA server."""
+    remote_addr = '123.45.67.89'
+    x_forwarded_for = '45.67.89.123, 98.76.54.123'
+    for x_for, exp_remoteip in [(None, '98.76.54.123'),
+                                ('1', '98.76.54.123'),
+                                ('2', '45.67.89.123')]:
+        with subtests.test(x_for=x_for, exp_remoteip=exp_remoteip):
+            env = _an_environment_with(use_proxy_fix='True',
+                                       proxy_fix_x_for=x_for)
+            client = _a_test_client_with(environment=env)
+
+            with mock.patch('requests.post', autospec=True) as mock_post:
+
+                client.post('/messages', data=_a_message_form(),
+                            environ_base={'REMOTE_ADDR': remote_addr},
+                            headers=[('X-Forwarded-For', x_forwarded_for)])
+
+            mock_post.assert_called_once_with(
+                'https://www.google.com/recaptcha/api/siteverify',
+                params={'secret': mock.ANY,
+                        'response': mock.ANY,
+                        'remoteip': exp_remoteip,
+                        })
+
+
 def test_send_message_wrong_method(client):
     """Tests a 405 error returned when accessing send with a bad method."""
     response = client.get('/messages')
@@ -671,7 +697,7 @@ def test_app_creation_failed_message_to_parse_failure(subtests):
                                      message_to=to_header),
                                  clear=True):
                 with pytest.raises(
-                        main.InvalidMessageToHeader,
+                        main.InvalidMessageToError,
                         match="Could not parse MESSAGE_TO config value "
                               f"'{to_header}'."):
                     main.create_app()
@@ -691,7 +717,7 @@ def test_app_creation_failed_no_message_to_has_defects(subtests):
                                      message_to=to_header),
                                  clear=True):
                 with pytest.raises(
-                        main.InvalidMessageToHeader,
+                        main.InvalidMessageToError,
                         match=f"MESSAGE_TO config value '{to_header}' "
                               'has the following defects:\n'
                               f'{defects_listing}'):
@@ -726,8 +752,8 @@ def test_invalid_logging_level_env_variable(subtests):
             env = _an_environment_with(logging_level=invalid_logging_level)
             with pytest.raises(
                     main.InvalidLoggingLevelError,
-                    match=f"Invalid LOGGING_LEVEL '{invalid_logging_level}' "
-                          f"specified."):
+                    match=f"Invalid LOGGING_LEVEL value "
+                          f"'{invalid_logging_level}' specified."):
                 _an_app_with(environment=env)
 
 
@@ -751,6 +777,20 @@ def test_google_cloud_logging_not_enabled_when_not_configured():
         _an_app_with(environment=env)
 
     mock_client.assert_not_called()
+
+
+def test_proxy_fix_x_for_raises_error_with_invalid_value(subtests):
+    """Test that an PROXY_FIX_X_FOR raises an error"""
+    for x_for in ['foo', 'bar']:
+        with subtests.test(x_for=x_for):
+            env = _an_environment_with(use_proxy_fix='True',
+                                       proxy_fix_x_for=x_for)
+
+            with pytest.raises(
+                    main.InvalidProxyFixXForError,
+                    match=f"Invalid PROXY_FIX_X_FOR value '{x_for}' "
+                          f"specified."):
+                _an_app_with(environment=env)
 
 
 def test_create_app_or_die_graceful_death_on_creation_failure():
@@ -834,7 +874,9 @@ def _an_environment_with(*,
                          message_to='someone@somewhere',
                          message_subject=None,
                          logging_level=None,
-                         use_google_cloud_logging=None):
+                         use_google_cloud_logging=None,
+                         use_proxy_fix=None,
+                         proxy_fix_x_for=None):
     env = [
         ('RECAPTCHA_SECRET', recaptcha_secret),
         ('MAILGUN_API_KEY', mailgun_api_key),
@@ -843,6 +885,8 @@ def _an_environment_with(*,
         ('MESSAGE_SUBJECT', message_subject),
         ('LOGGING_LEVEL', logging_level),
         ('USE_GOOGLE_CLOUD_LOGGING', use_google_cloud_logging),
+        ('USE_PROXY_FIX', use_proxy_fix),
+        ('PROXY_FIX_X_FOR', proxy_fix_x_for)
     ]
     return {var: val for var, val in env if val is not None}
 

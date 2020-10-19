@@ -15,5 +15,7 @@ env_variables:
   # Optional
   # MESSAGE_SUBJECT:           - Subject added to all sent messages; if omitted, no subject header will be used
   # USE_GOOGLE_CLOUD_LOGGING:  - Set to a non-empty value to use the Google Cloud Logging service
-  # LOGGING_LEVEL              - Logging level of the app's logger.
+  # LOGGING_LEVEL:             - Logging level of the app's logger.
   #                              Choose from {CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET}
+  # USE_PROXY_FIX:             - Apply Werkzeug's ProxyFix middleware to the WSGI app
+  # PROXY_FIX_X_FOR:           - Set the 'x_for' parameter for the ProxyFix middleware
