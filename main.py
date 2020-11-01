@@ -301,7 +301,10 @@ def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
 
     def _send_message_via_mailgun_api():
         post_kwargs = _mailgun_message_post_kwargs()
-        response = requests.post(**post_kwargs)
+        try:
+            response = requests.post(**post_kwargs)
+        except requests.ConnectionError as error:
+            _abort_on_mailgun_communication_error(error, post_kwargs)
         _check_mailgun_send_response_status(post_kwargs, response)
 
     def _mailgun_message_post_kwargs():
@@ -330,13 +333,15 @@ def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
         try:
             response.raise_for_status()
         except requests.HTTPError as error:
-            app.logger.error(  # pylint: disable=no-member
-                f'Mailgun send message request encountered error: {error!r}\n'
-                f'POST sent with parameters: {_pii_redacted(post_kwargs)}'
-            )
-            flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
-                        'An error was encountered when sending the message. '
-                        'Please try again later.')
+            _abort_on_mailgun_communication_error(error, post_kwargs)
+
+    def _abort_on_mailgun_communication_error(error, post_kwargs):
+        app.logger.error(  # pylint: disable=no-member
+            f'Mailgun send message request encountered error: {error!r}\n'
+            f'POST sent with parameters: {_pii_redacted(post_kwargs)}')
+        flask.abort(http.HTTPStatus.INTERNAL_SERVER_ERROR,
+                    'An error was encountered when sending the message. '
+                    'Please try again later.')
 
     def _pii_redacted(post_kwargs):
         redacted_kwargs = {k: v for k, v in post_kwargs.items() if k != 'data'}

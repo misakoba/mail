@@ -608,8 +608,8 @@ def test_send_message_site_verify_non_client_errors_logged_error(subtests,
             f"'error-codes': {error_codes}}}")
 
 
-def test_mailgun_message_send_http_error_returns_500_error(client):
-    """Tests messages successfully sent."""
+def test_mailgun_message_send_http_status_error_returns_500_error(client):
+    """Tests 500 error returned on mailgun HTTP status error."""
     with mock.patch('requests.post', autospec=True) as mock_post:
         mock_json = mock_post.return_value.json
         mock_json.return_value = _a_site_verify_response_with(success=True)
@@ -629,7 +629,7 @@ def test_mailgun_message_send_http_error_returns_500_error(client):
 
 
 def test_mailgun_message_send_http_error_logs_error(caplog):
-    """Tests messages successfully sent."""
+    """Tests error logged on mailgun HTTP status error."""
     with mock.patch('requests.post', autospec=True) as mock_post:
         mock_json = mock_post.return_value.json
         mock_json.return_value = _a_site_verify_response_with(success=True)
@@ -655,6 +655,68 @@ def test_mailgun_message_send_http_error_logs_error(caplog):
     assert message.startswith(
         "Mailgun send message request encountered error: "
         "HTTPError('Bad request.')")
+    assert 'https://api.mailgun.net/v3/my_mailgun_domain/messages' in message
+    assert 'my_mailgun_api_key' in message
+    assert 'a@b.c' in message
+    assert '"Mr. X" <mr.x@somedomain.com>' not in message
+    assert "Hey, what's up?" not in message
+
+
+def test_mailgun_message_send_connection_error_returns_500_error(client):
+    """Tests 500 error returned on mailgun connection error."""
+    mock_response = mock.create_autospec(requests.Response, instance=True)
+    mock_json = mock_response.json
+    mock_json.return_value = _a_site_verify_response_with(success=True)
+    connection_error = requests.exceptions.ConnectionError("Couldn't connect.")
+
+    with mock.patch(
+            'requests.post',
+            autospec=True,
+            side_effect=[mock_response, connection_error]):
+
+        response = client.post('/messages', data=_a_message_form())
+
+    assert response.status_code == http.HTTPStatus.INTERNAL_SERVER_ERROR
+    assert response.content_type == 'application/json'
+    assert json.loads(response.data) == {
+        'code': http.HTTPStatus.INTERNAL_SERVER_ERROR,
+        'name': 'Internal Server Error',
+        'description': 'An error was encountered when sending the '
+                       'message. Please try again later.',
+    }
+
+
+def test_mailgun_message_send_connection_error_logs_error(caplog):
+    """Tests error logged on mailgun connection error."""
+    mock_response = mock.create_autospec(requests.Response, instance=True)
+    mock_json = mock_response.json
+    mock_json.return_value = _a_site_verify_response_with(success=True)
+    connection_error = requests.exceptions.ConnectionError("Couldn't connect.")
+
+    with mock.patch(
+            'requests.post',
+            autospec=True,
+            side_effect=[mock_response, connection_error]):
+        client = _a_test_client_with(environment=_an_environment_with(
+            mailgun_domain='my_mailgun_domain',
+            mailgun_api_key='my_mailgun_api_key',
+            message_to='a@b.c'
+        ))
+        message_form = _a_message_form_with(
+            name='Mr. X',
+            email='mr.x@somedomain.com',
+            message="Hey, what's up?")
+
+        client.post('/messages', data=message_form)
+
+    error_logs = [record for record in caplog.records
+                  if record.levelname == 'ERROR']
+    assert len(error_logs) == 1
+    record = error_logs[0]
+    message = record.getMessage()
+    assert message.startswith(
+        'Mailgun send message request encountered error: '
+        'ConnectionError("Couldn\'t connect.")')
     assert 'https://api.mailgun.net/v3/my_mailgun_domain/messages' in message
     assert 'my_mailgun_api_key' in message
     assert 'a@b.c' in message
