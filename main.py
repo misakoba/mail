@@ -209,11 +209,15 @@ def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
         _check_recaptcha_site_verify_response_contents(response)
 
     def _post_to_recaptcha_site_verify():
-        return requests.post(
-            'https://www.google.com/recaptcha/api/siteverify',
-            params=_recaptcha_site_verify_params())
+        post_kwargs = {
+            'url': 'https://www.google.com/recaptcha/api/siteverify',
+            'params': _recaptcha_site_verify_params(),
+        }
+        app.logger.info('POST to RECAPTCHA site verify: %s', post_kwargs)
+        return requests.post(**post_kwargs)
 
     def _check_recaptcha_site_verify_http_status(response):
+        app.logger.info('reCAPTCHA site verify response status: %s', response)
         try:
             response.raise_for_status()
         except requests.HTTPError as error:
@@ -224,6 +228,8 @@ def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
 
     def _check_recaptcha_site_verify_response_contents(response):
         site_verify_response = response.json()
+        app.logger.info('reCAPTCHA site verify response data: %s',
+                        site_verify_response)
         if site_verify_response['success']:
             _check_recaptcha_action(site_verify_response['action'])
             _check_recaptcha_score(site_verify_response['score'])
