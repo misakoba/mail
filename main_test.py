@@ -85,7 +85,8 @@ def test_successful_send_message(client, subtests):
                     params={'secret': mock.ANY,
                             'response': message_form['g-recaptcha-response'],
                             'remoteip': mock.ANY,
-                            }),
+                            },
+                    timeout=main.EXTERNAL_SERVICE_DEFAULT_TIMEOUT_SECONDS),
                 mock.call().raise_for_status(),
                 mock.call().json(),
 
@@ -97,7 +98,8 @@ def test_successful_send_message(client, subtests):
                         'from': expected_from,
                         'to': message_to,
                         'text': message_form['message'],
-                    }),
+                    },
+                    timeout=main.EXTERNAL_SERVICE_DEFAULT_TIMEOUT_SECONDS),
             ])
             assert response.status_code == http.HTTPStatus.OK
             assert response.data == b'Successfully sent message.'
@@ -122,7 +124,8 @@ def test_message_subject_sent_if_defined():
             'to': mock.ANY,
             'subject': 'A message for you',
             'text': mock.ANY,
-        })
+        },
+        timeout=mock.ANY)
 
 
 def test_send_message_propagates_remote_ip(client, subtests):
@@ -138,7 +141,8 @@ def test_send_message_propagates_remote_ip(client, subtests):
                 params={'secret': mock.ANY,
                         'response': mock.ANY,
                         'remoteip': remote_addr,
-                        })
+                        },
+                timeout=mock.ANY)
 
 
 def test_send_message_propagates_remote_ip_behind_proxy(subtests):
@@ -164,7 +168,8 @@ def test_send_message_propagates_remote_ip_behind_proxy(subtests):
                 params={'secret': mock.ANY,
                         'response': mock.ANY,
                         'remoteip': exp_remoteip,
-                        })
+                        },
+                timeout=mock.ANY)
 
 
 def test_send_message_wrong_method(client):
@@ -354,13 +359,7 @@ def test_send_message_recaptcha_request_failed(client):
         mock_raise_for_status = mock_post.return_value.raise_for_status
         mock_raise_for_status.side_effect = requests.HTTPError(
             'Bad request.')
-        response = client.post('/messages',
-                               data=_a_message_form())
-        mock_post.assert_called_once_with(
-            'https://www.google.com/recaptcha/api/siteverify',
-            params={'secret': mock.ANY,
-                    'response': mock.ANY,
-                    'remoteip': mock.ANY})
+        response = client.post('/messages', data=_a_message_form())
 
         assert (response.status_code ==
                 http.HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -444,7 +443,8 @@ def test_send_message_env_variable_recaptcha_secret(subtests):
                 'https://www.google.com/recaptcha/api/siteverify',
                 params={'secret': recaptcha_secret,
                         'response': mock.ANY,
-                        'remoteip': mock.ANY})
+                        'remoteip': mock.ANY},
+                timeout=mock.ANY)
 
 
 def test_send_message_with_unexpected_action_returns_400_error(client,

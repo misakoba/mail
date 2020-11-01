@@ -17,6 +17,7 @@ import werkzeug.middleware.proxy_fix
 
 RECAPTCHA_DEFAULT_EXPECTED_ACTION = 'submit'
 RECAPTCHA_DEFAULT_SCORE_THRESHOLD = 0.5
+EXTERNAL_SERVICE_DEFAULT_TIMEOUT_SECONDS = 15.0
 SEND_FORM_REQUIRED_FIELDS = {'g-recaptcha-response', 'name', 'email',
                              'message'}
 CONFIG_VALUES = {
@@ -212,6 +213,7 @@ def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
         post_kwargs = {
             'url': 'https://www.google.com/recaptcha/api/siteverify',
             'params': _recaptcha_site_verify_params(),
+            'timeout': EXTERNAL_SERVICE_DEFAULT_TIMEOUT_SECONDS,
         }
         app.logger.info('POST to RECAPTCHA site verify: %s', post_kwargs)
         try:
@@ -310,7 +312,7 @@ def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
             'data': {'from': _create_from_header(),
                      'to': app.config['MESSAGE_TO'],
                      'text': flask.request.form['message']},
-
+            'timeout': EXTERNAL_SERVICE_DEFAULT_TIMEOUT_SECONDS,
         }
 
         if subject := app.config.get('MESSAGE_SUBJECT'):
