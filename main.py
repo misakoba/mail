@@ -215,7 +215,7 @@ def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
             'params': _recaptcha_site_verify_params(),
             'timeout': EXTERNAL_SERVICE_DEFAULT_TIMEOUT_SECONDS,
         }
-        app.logger.info('POST to RECAPTCHA site verify: %s', post_kwargs)
+        app.logger.info('POST to reCAPTCHA site verify: %s', post_kwargs)
         try:
             return requests.post(**post_kwargs)
         except requests.exceptions.ConnectionError as error:
@@ -301,11 +301,15 @@ def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
 
     def _send_message_via_mailgun_api():
         post_kwargs = _mailgun_message_post_kwargs()
+        app.logger.info('POST to Mailgun messages API: %s',
+                        _pii_redacted(post_kwargs))
         try:
             response = requests.post(**post_kwargs)
         except requests.ConnectionError as error:
             _abort_on_mailgun_communication_error(error, post_kwargs)
         _check_mailgun_send_response_status(post_kwargs, response)
+        app.logger.info('Mailgun messages API response data: %s',
+                        response.json())
 
     def _mailgun_message_post_kwargs():
         post_kwargs = {
@@ -330,6 +334,7 @@ def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
         return from_address
 
     def _check_mailgun_send_response_status(post_kwargs, response):
+        app.logger.info('Mailgun messages API response status: %s', response)
         try:
             response.raise_for_status()
         except requests.HTTPError as error:

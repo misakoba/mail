@@ -1,5 +1,5 @@
 """Unit tests for misakoba-mail's main module."""
-
+# pylint: disable=too-many-lines
 import collections
 import http
 import json
@@ -722,6 +722,38 @@ def test_mailgun_message_send_connection_error_logs_error(caplog):
     assert 'a@b.c' in message
     assert '"Mr. X" <mr.x@somedomain.com>' not in message
     assert "Hey, what's up?" not in message
+
+
+def test_mailgun_message_send_with_info_logging_no_pii(caplog):
+    """Tests no PII logged to INFO log on message send."""
+    with mock.patch('requests.post', autospec=True) as mock_post:
+        mock_json = mock_post.return_value.json
+        mock_json.side_effect = [
+            _a_site_verify_response_with(success=True),
+            {'message': 'Queued. Thank you.',
+             'id': '<20111114174239.25659.5817@samples.mailgun.org>'},
+        ]
+
+        client = _a_test_client_with(environment=_an_environment_with(
+            mailgun_domain='my_mailgun_domain',
+            mailgun_api_key='my_mailgun_api_key',
+            message_to='a@b.c',
+            logging_level='INFO'))
+        message_form = _a_message_form_with(
+            name='Mr. X',
+            email='mr.x@somedomain.com',
+            message="Hey, what's up?")
+
+        response = client.post('/messages', data=message_form)
+
+    assert response.status_code == http.HTTPStatus.OK
+    info_records = (record for record in caplog.records
+                    if record.levelname == 'INFO')
+    for record in info_records:
+        message = record.getMessage()
+        print(message)
+        assert '"Mr. X" <mr.x@somedomain.com>' not in message
+        assert "Hey, what's up?" not in message
 
 
 def test_app_creation_failed_no_recaptcha_secret(subtests):
