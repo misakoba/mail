@@ -344,7 +344,7 @@ def test_send_message_400_error_if_empty_message_specified(client):
 
 
 def test_send_message_recaptcha_request_failed(client):
-    """Tests a 500 error returned when accessing send with a bad method."""
+    """Tests a 500 error reCAPTCHA site verify response has bad status."""
     mock_recaptcha_response = mock.create_autospec(requests.Response,
                                                    instance=True)
     mock_recaptcha_response.raise_for_status.side_effect = requests.HTTPError(
@@ -392,6 +392,42 @@ def test_send_message_recaptcha_request_failure_logged(client, caplog):
     record = error_logs[0]
     assert record.getMessage() == (
         'Error in communicating with reCAPTCHA server: Bad request.')
+
+
+def test_send_message_recaptcha_request_network_error(client):
+    """Tests a 500 error reCAPTCHA site verify response has bad status."""
+    with mock.patch(
+            'requests.post',
+            autospec=True,
+            side_effect=requests.exceptions.ConnectionError(
+                "Couldn't connect.")):
+        response = client.post('/messages', data=_a_message_form())
+
+        assert (response.status_code ==
+                http.HTTPStatus.INTERNAL_SERVER_ERROR)
+        assert response.content_type == 'application/json'
+        assert json.loads(response.data) == {
+            'code': http.HTTPStatus.INTERNAL_SERVER_ERROR,
+            'name': 'Internal Server Error',
+            'description': 'Error in communicating with reCAPTCHA server.',
+        }
+
+
+def test_send_message_recaptcha_connection_error_logged(client, caplog):
+    """Tests that the ConnectionError is logged on reCAPTCHA failure."""
+    with mock.patch(
+            'requests.post',
+            autospec=True,
+            side_effect=requests.exceptions.ConnectionError(
+                "Couldn't connect.")):
+        client.post('/messages', data=_a_message_form())
+
+    error_logs = [record for record in caplog.records
+                  if record.levelname == 'ERROR']
+    assert len(error_logs) == 1
+    record = error_logs[0]
+    assert record.getMessage() == (
+        "Error in communicating with reCAPTCHA server: Couldn't connect.")
 
 
 def test_send_message_env_variable_recaptcha_secret(subtests):
