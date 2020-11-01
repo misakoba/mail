@@ -289,12 +289,12 @@ def test_send_message_400_error_if_empty_email_specified(client):
 def test_send_message_400_error_if_empty_email_is_invalid(client, subtests):
     """Tests 400 error returned if the sender email address has no domain."""
     invalid_addresses = [
-        'foo',  # No domain
-        'foo@',  # Empty domain
-        'foo@.bar',  # Bad domain delimiter
-        'foo@.bar.',  # Bad domain delimiters
-        'foo@bar.',  # Bad domain delimiters
-        'foo@bar,baz',  # Unexpected comma
+        'foo',  # No domain, InvalidHeaderDefect expected
+        'foo@',  # Empty domain, IndexError expected
+        'foo@.bar',  # Bad domain delimiters, HeaderParseError expected
+        'foo@.bar.',  # Bad domain delimiters, HeaderParseError expected
+        'foo@bar.',  # Bad domain delimiters, HeaderParseError expected
+        'foo@bar,baz',  # Unexpected comma, ValueError expected
     ]
     for email in invalid_addresses:
         with subtests.test(email=email):

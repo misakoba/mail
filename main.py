@@ -1,5 +1,6 @@
 """A Flask app implementing the mailing backend for misakoba.github.io."""
 
+import email.errors
 import email.headerregistry
 import email.policy
 import http
@@ -183,13 +184,12 @@ def _add_handlers(app):  # pylint: disable=too-many-locals, too-many-statements
             _check_missing_send_form_field(field)
             _check_empty_form_field(field)
 
-        # NOTE: The exceptions returned by email.registry.Address are currently
-        # (as of 2020-10-05) not documented well, so we're using a catch-all
-        # exception below.
         addr_spec = flask.request.form['email']
         try:
             email.headerregistry.Address(addr_spec=addr_spec)
-        except Exception:  # pylint: disable=broad-except
+        except (IndexError,
+                ValueError,
+                email.errors.HeaderParseError):
             flask.abort(http.HTTPStatus.BAD_REQUEST,
                         f'Email address "{addr_spec}" is invalid.')
 
