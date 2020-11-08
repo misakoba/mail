@@ -1,4 +1,6 @@
-import setuptools
+"""Defines the metadata of the misakoba-mail package."""
+
+import setuptools  # type: ignore
 
 with open('README.md', 'r') as f:
     long_description = f.read()

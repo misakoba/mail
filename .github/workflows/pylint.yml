@@ -21,4 +21,4 @@ jobs:
         pip install .
     - name: Analysing the code with pylint
       run: |
-        find . -file '*.py' -exec pylint {} +
+        find . -name '*.py' -exec pylint {} +
