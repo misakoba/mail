@@ -21,4 +21,4 @@ jobs:
         pip install .
     - name: Analysing the code with pylint
       run: |
-        pylint `ls -R|grep .py$|xargs`
+        find . -file '*.py' -exec pylint {} +
