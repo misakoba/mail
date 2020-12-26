@@ -374,7 +374,3 @@ def create_app_or_die():
         return create_app()
     except MisakobaMailError as error:
         sys.exit(str(error))
-
-
-if __name__ == '__main__':
-    create_app_or_die().run(host='127.0.0.1', port=8080, debug=True)

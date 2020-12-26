@@ -9,7 +9,7 @@ from unittest import mock
 import pytest
 import requests
 
-import misakoba_mail.main
+import misakoba_mail.app
 
 
 @pytest.fixture(name='client')
@@ -28,7 +28,7 @@ def _an_app_with(*, environment=None):
     if environment is None:
         environment = _an_environment()
     with mock.patch.dict('os.environ', environment):
-        app = misakoba_mail.main.create_app()
+        app = misakoba_mail.app.create_app()
     return app
 
 
@@ -86,7 +86,7 @@ def test_successful_send_message(client, subtests):
                             'response': message_form['g-recaptcha-response'],
                             'remoteip': mock.ANY,
                             },
-                    timeout=(misakoba_mail.main.
+                    timeout=(misakoba_mail.app.
                              EXTERNAL_SERVICE_DEFAULT_TIMEOUT_SECONDS)),
                 mock.call().raise_for_status(),
                 mock.call().json(),
@@ -100,7 +100,7 @@ def test_successful_send_message(client, subtests):
                         'to': message_to,
                         'text': message_form['message'],
                     },
-                    timeout=(misakoba_mail.main.
+                    timeout=(misakoba_mail.app.
                              EXTERNAL_SERVICE_DEFAULT_TIMEOUT_SECONDS)),
             ])
             assert response.status_code == http.HTTPStatus.OK
@@ -475,8 +475,8 @@ def test_send_message_with_unexpected_action_returns_400_error(client,
 def test_send_message_with_recaptcha_score_below_threshold_400_error(client,
                                                                      subtests):
     """Test 400 error returned when reCAPTCHA score is below threshold."""
-    for score in [misakoba_mail.main.RECAPTCHA_DEFAULT_SCORE_THRESHOLD - 0.1,
-                  misakoba_mail.main.RECAPTCHA_DEFAULT_SCORE_THRESHOLD - 0.2]:
+    for score in [misakoba_mail.app.RECAPTCHA_DEFAULT_SCORE_THRESHOLD - 0.1,
+                  misakoba_mail.app.RECAPTCHA_DEFAULT_SCORE_THRESHOLD - 0.2]:
         with subtests.test(score=score):
             with mock.patch('requests.post', autospec=True) as mock_post:
                 mock_json = mock_post.return_value.json
@@ -767,11 +767,11 @@ def test_app_creation_failed_no_recaptcha_secret(subtests):
         with subtests.test(subcase=subcase):
             with mock.patch.dict('os.environ', environ, clear=True):
                 with pytest.raises(
-                        misakoba_mail.main.MissingRequiredConfigValueError,
+                        misakoba_mail.app.MissingRequiredConfigValueError,
                         match=(
                         'Cannot create web application without '
                         'RECAPTCHA_SECRET configuration value.')):
-                    misakoba_mail.main.create_app()
+                    misakoba_mail.app.create_app()
 
 
 def test_app_creation_failed_no_mailgun_api_key(subtests):
@@ -783,10 +783,10 @@ def test_app_creation_failed_no_mailgun_api_key(subtests):
         with subtests.test(subcase=subcase):
             with mock.patch.dict('os.environ', environ, clear=True):
                 with pytest.raises(
-                        misakoba_mail.main.MissingRequiredConfigValueError,
+                        misakoba_mail.app.MissingRequiredConfigValueError,
                         match=('Cannot create web application without '
                                'MAILGUN_API_KEY configuration value.')):
-                    misakoba_mail.main.create_app()
+                    misakoba_mail.app.create_app()
 
 
 def test_app_creation_failed_no_mailgun_domain(subtests):
@@ -798,10 +798,10 @@ def test_app_creation_failed_no_mailgun_domain(subtests):
         with subtests.test(subcase=subcase):
             with mock.patch.dict('os.environ', environ, clear=True):
                 with pytest.raises(
-                        misakoba_mail.main.MissingRequiredConfigValueError,
+                        misakoba_mail.app.MissingRequiredConfigValueError,
                         match=('Cannot create web application without '
                                'MAILGUN_DOMAIN configuration value.')):
-                    misakoba_mail.main.create_app()
+                    misakoba_mail.app.create_app()
 
 
 def test_app_creation_failed_no_message_to(subtests):
@@ -813,10 +813,10 @@ def test_app_creation_failed_no_message_to(subtests):
         with subtests.test(subcase=subcase):
             with mock.patch.dict('os.environ', environ, clear=True):
                 with pytest.raises(
-                        misakoba_mail.main.MissingRequiredConfigValueError,
+                        misakoba_mail.app.MissingRequiredConfigValueError,
                         match=('Cannot create web application without '
                                'MESSAGE_TO configuration value.')):
-                    misakoba_mail.main.create_app()
+                    misakoba_mail.app.create_app()
 
 
 def test_app_creation_failed_message_to_parse_failure(subtests):
@@ -829,10 +829,10 @@ def test_app_creation_failed_message_to_parse_failure(subtests):
                                      message_to=to_header),
                                  clear=True):
                 with pytest.raises(
-                        misakoba_mail.main.InvalidMessageToError,
+                        misakoba_mail.app.InvalidMessageToError,
                         match="Could not parse MESSAGE_TO config value "
                               f"'{to_header}'."):
-                    misakoba_mail.main.create_app()
+                    misakoba_mail.app.create_app()
 
 
 def test_app_creation_failed_no_message_to_has_defects(subtests):
@@ -849,11 +849,11 @@ def test_app_creation_failed_no_message_to_has_defects(subtests):
                                      message_to=to_header),
                                  clear=True):
                 with pytest.raises(
-                        misakoba_mail.main.InvalidMessageToError,
+                        misakoba_mail.app.InvalidMessageToError,
                         match=f"MESSAGE_TO config value '{to_header}' "
                               'has the following defects:\n'
                               f'{defects_listing}'):
-                    misakoba_mail.main.create_app()
+                    misakoba_mail.app.create_app()
 
 
 def test_app_configured_for_logging_level(subtests):
@@ -883,7 +883,7 @@ def test_invalid_logging_level_env_variable(subtests):
         with subtests.test(invalid_logging_level=invalid_logging_level):
             env = _an_environment_with(logging_level=invalid_logging_level)
             with pytest.raises(
-                    misakoba_mail.main.InvalidLoggingLevelError,
+                    misakoba_mail.app.InvalidLoggingLevelError,
                     match=f"Invalid LOGGING_LEVEL value "
                           f"'{invalid_logging_level}' specified."):
                 _an_app_with(environment=env)
@@ -919,7 +919,7 @@ def test_proxy_fix_x_for_raises_error_with_invalid_value(subtests):
                                        proxy_fix_x_for=x_for)
 
             with pytest.raises(
-                    misakoba_mail.main.InvalidProxyFixXForError,
+                    misakoba_mail.app.InvalidProxyFixXForError,
                     match=f"Invalid PROXY_FIX_X_FOR value '{x_for}' "
                           f"specified."):
                 _an_app_with(environment=env)
@@ -935,7 +935,7 @@ def test_create_app_or_die_graceful_death_on_creation_failure():
                 match=(
                 'Cannot create web application without RECAPTCHA_SECRET '
                 'configuration value.')):
-            misakoba_mail.main.create_app_or_die()
+            misakoba_mail.app.create_app_or_die()
 
 
 def _a_site_verify_response_with(
@@ -951,7 +951,7 @@ def _a_site_verify_response_with(
     for var, attribute, present_on_success, default in [
         (score, 'score', True, 0.9),
         (action, 'action', True,
-         misakoba_mail.main.RECAPTCHA_DEFAULT_EXPECTED_ACTION),
+         misakoba_mail.app.RECAPTCHA_DEFAULT_EXPECTED_ACTION),
         (challenge_ts, 'challenge_ts', True, '2020-10-01T03:17:06Z'),
         (hostname, 'hostname', True, 'some_verify_host'),
         (error_codes, 'error-codes', False, ['invalid-input-secret']),

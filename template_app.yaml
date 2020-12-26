@@ -3,7 +3,7 @@
 
 runtime: python38
 
-entrypoint: gunicorn --bind=":${PORT}" --workers=1 'main:create_app_or_die()'
+entrypoint: gunicorn --bind=":${PORT}" --workers=1 'app:create_app_or_die()'
 
 env_variables:
   # Required
