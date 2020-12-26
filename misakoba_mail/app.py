@@ -16,6 +16,8 @@ import requests
 import werkzeug.exceptions
 import werkzeug.middleware.proxy_fix
 
+import misakoba_mail.exceptions
+
 RECAPTCHA_DEFAULT_EXPECTED_ACTION = 'submit'
 RECAPTCHA_DEFAULT_SCORE_THRESHOLD = 0.5
 EXTERNAL_SERVICE_DEFAULT_TIMEOUT_SECONDS = 15.0
@@ -41,44 +43,6 @@ REQUIRED_CONFIG_VALUES = {'RECAPTCHA_SECRET', 'MAILGUN_API_KEY',
                           'MAILGUN_DOMAIN', 'MESSAGE_TO'}
 
 assert REQUIRED_CONFIG_VALUES <= CONFIG_VALUES
-
-
-class MisakobaMailError(Exception):
-    """Base class for application-specific errors."""
-
-
-class MissingRequiredConfigValueError(MisakobaMailError):
-    """Error for MissingConfigValue."""
-
-
-class InvalidMessageToError(MisakobaMailError):
-    """Error when the Message's 'to' Header is invalid."""
-
-
-class InvalidEnvironmentConfigValueError(MisakobaMailError):
-    """Error for invalid config values derived from the environment."""
-    def __init__(self, config_value_name, value):
-        super().__init__()
-        self.config_value_name = config_value_name
-        self.value = value
-
-    def __str__(self):
-        return (f'Invalid {self.config_value_name} value {self.value!r} '
-                f'specified.')
-
-
-class InvalidLoggingLevelError(InvalidEnvironmentConfigValueError):
-    """Error if the 'LOGGING_LEVEL' config value is invalid."""
-
-    def __init__(self, value):
-        super().__init__('LOGGING_LEVEL', value)
-
-
-class InvalidProxyFixXForError(InvalidEnvironmentConfigValueError):
-    """Error if the 'PROXY_FIX_X_FOR' config value is invalid."""
-
-    def __init__(self, value):
-        super().__init__('PROXY_FIX_X_FOR', value)
 
 
 def create_app():
@@ -122,7 +86,7 @@ def _populate_config_from_environment(config):
         try:
             config['PROXY_FIX_X_FOR'] = int(proxy_fix_x_for)
         except ValueError as error:
-            raise InvalidProxyFixXForError(proxy_fix_x_for) from error
+            raise misakoba_mail.exceptions.InvalidProxyFixXForError(proxy_fix_x_for) from error
 
     config['USE_PROXY_FIX'] = use_proxy_fix
 
@@ -141,14 +105,14 @@ def _configure_logging_level_from_env(config):
     if logging_level_name := os.environ.get('LOGGING_LEVEL'):
         logging_level = logging_levels_by_name.get(logging_level_name)
         if logging_level is None:
-            raise InvalidLoggingLevelError(logging_level_name)
+            raise misakoba_mail.exceptions.InvalidLoggingLevelError(logging_level_name)
         config['LOGGING_LEVEL'] = logging_level
 
 
 def _check_for_required_config_values(config):
     for config_value_name in REQUIRED_CONFIG_VALUES:
         if not config[config_value_name]:
-            raise MissingRequiredConfigValueError(
+            raise misakoba_mail.exceptions.MissingRequiredConfigValueError(
                 f'Cannot create web application without {config_value_name} '
                 'configuration value.')
 
@@ -158,13 +122,13 @@ def _check_message_to(raw_message_to):
         standardized_to_header = email.policy.strict.header_factory(
             'to', raw_message_to)
     except IndexError as error:
-        raise InvalidMessageToError(
+        raise misakoba_mail.exceptions.InvalidMessageToError(
             "Could not parse MESSAGE_TO config value "
             f"{raw_message_to!r}.") from error
 
     if defects := standardized_to_header.defects:
         defects_listing = '\n'.join(f'- {defect}' for defect in defects)
-        raise InvalidMessageToError(
+        raise misakoba_mail.exceptions.InvalidMessageToError(
             f'MESSAGE_TO config value {raw_message_to!r} has '
             f'the following defects:\n{defects_listing}')
 
@@ -372,5 +336,5 @@ def create_app_or_die():
     """Create the webapp, or report the error and terminate."""
     try:
         return create_app()
-    except MisakobaMailError as error:
+    except misakoba_mail.exceptions.MisakobaMailError as error:
         sys.exit(str(error))

@@ -10,6 +10,7 @@ import pytest
 import requests
 
 import misakoba_mail.app
+import misakoba_mail.exceptions
 
 
 @pytest.fixture(name='client')
@@ -767,7 +768,8 @@ def test_app_creation_failed_no_recaptcha_secret(subtests):
         with subtests.test(subcase=subcase):
             with mock.patch.dict('os.environ', environ, clear=True):
                 with pytest.raises(
-                        misakoba_mail.app.MissingRequiredConfigValueError,
+                        (misakoba_mail.exceptions.
+                         MissingRequiredConfigValueError),
                         match=(
                         'Cannot create web application without '
                         'RECAPTCHA_SECRET configuration value.')):
@@ -783,7 +785,8 @@ def test_app_creation_failed_no_mailgun_api_key(subtests):
         with subtests.test(subcase=subcase):
             with mock.patch.dict('os.environ', environ, clear=True):
                 with pytest.raises(
-                        misakoba_mail.app.MissingRequiredConfigValueError,
+                        (misakoba_mail.exceptions.
+                         MissingRequiredConfigValueError),
                         match=('Cannot create web application without '
                                'MAILGUN_API_KEY configuration value.')):
                     misakoba_mail.app.create_app()
@@ -798,7 +801,8 @@ def test_app_creation_failed_no_mailgun_domain(subtests):
         with subtests.test(subcase=subcase):
             with mock.patch.dict('os.environ', environ, clear=True):
                 with pytest.raises(
-                        misakoba_mail.app.MissingRequiredConfigValueError,
+                        (misakoba_mail.exceptions.
+                         MissingRequiredConfigValueError),
                         match=('Cannot create web application without '
                                'MAILGUN_DOMAIN configuration value.')):
                     misakoba_mail.app.create_app()
@@ -813,7 +817,8 @@ def test_app_creation_failed_no_message_to(subtests):
         with subtests.test(subcase=subcase):
             with mock.patch.dict('os.environ', environ, clear=True):
                 with pytest.raises(
-                        misakoba_mail.app.MissingRequiredConfigValueError,
+                        (misakoba_mail.exceptions.
+                         MissingRequiredConfigValueError),
                         match=('Cannot create web application without '
                                'MESSAGE_TO configuration value.')):
                     misakoba_mail.app.create_app()
@@ -829,7 +834,7 @@ def test_app_creation_failed_message_to_parse_failure(subtests):
                                      message_to=to_header),
                                  clear=True):
                 with pytest.raises(
-                        misakoba_mail.app.InvalidMessageToError,
+                        misakoba_mail.exceptions.InvalidMessageToError,
                         match="Could not parse MESSAGE_TO config value "
                               f"'{to_header}'."):
                     misakoba_mail.app.create_app()
@@ -849,7 +854,7 @@ def test_app_creation_failed_no_message_to_has_defects(subtests):
                                      message_to=to_header),
                                  clear=True):
                 with pytest.raises(
-                        misakoba_mail.app.InvalidMessageToError,
+                        misakoba_mail.exceptions.InvalidMessageToError,
                         match=f"MESSAGE_TO config value '{to_header}' "
                               'has the following defects:\n'
                               f'{defects_listing}'):
@@ -883,7 +888,7 @@ def test_invalid_logging_level_env_variable(subtests):
         with subtests.test(invalid_logging_level=invalid_logging_level):
             env = _an_environment_with(logging_level=invalid_logging_level)
             with pytest.raises(
-                    misakoba_mail.app.InvalidLoggingLevelError,
+                    misakoba_mail.exceptions.InvalidLoggingLevelError,
                     match=f"Invalid LOGGING_LEVEL value "
                           f"'{invalid_logging_level}' specified."):
                 _an_app_with(environment=env)
@@ -919,7 +924,7 @@ def test_proxy_fix_x_for_raises_error_with_invalid_value(subtests):
                                        proxy_fix_x_for=x_for)
 
             with pytest.raises(
-                    misakoba_mail.app.InvalidProxyFixXForError,
+                    misakoba_mail.exceptions.InvalidProxyFixXForError,
                     match=f"Invalid PROXY_FIX_X_FOR value '{x_for}' "
                           f"specified."):
                 _an_app_with(environment=env)
