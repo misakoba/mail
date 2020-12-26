@@ -176,7 +176,7 @@ def test_send_message_propagates_remote_ip_behind_proxy(subtests):
                 timeout=mock.ANY)
 
 
-def test_send_message_wrong_method(client):
+def test_404_error_on_bad_path(client):
     """Tests a 404 error returned when accessing send with a bad path."""
     response = client.post('/bad/path')
 
