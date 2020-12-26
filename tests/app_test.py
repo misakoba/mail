@@ -177,6 +177,14 @@ def test_send_message_propagates_remote_ip_behind_proxy(subtests):
 
 
 def test_send_message_wrong_method(client):
+    """Tests a 404 error returned when accessing send with a bad path."""
+    response = client.post('/bad/path')
+
+    assert response.status_code == http.HTTPStatus.NOT_FOUND
+    assert response.content_type == 'application/json'
+
+
+def test_send_message_wrong_method(client):
     """Tests a 405 error returned when accessing send with a bad method."""
     response = client.get('/messages')
 
