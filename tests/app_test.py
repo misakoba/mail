@@ -11,6 +11,7 @@ import requests
 
 import misakoba_mail.app
 import misakoba_mail.exceptions
+import misakoba_mail.messages
 
 
 @pytest.fixture(name='client')
@@ -87,7 +88,7 @@ def test_successful_send_message(client, subtests):
                             'response': message_form['g-recaptcha-response'],
                             'remoteip': mock.ANY,
                             },
-                    timeout=(misakoba_mail.app.
+                    timeout=(misakoba_mail.messages.
                              EXTERNAL_SERVICE_DEFAULT_TIMEOUT_SECONDS)),
                 mock.call().raise_for_status(),
                 mock.call().json(),
@@ -101,7 +102,7 @@ def test_successful_send_message(client, subtests):
                         'to': message_to,
                         'text': message_form['message'],
                     },
-                    timeout=(misakoba_mail.app.
+                    timeout=(misakoba_mail.messages.
                              EXTERNAL_SERVICE_DEFAULT_TIMEOUT_SECONDS)),
             ])
             assert response.status_code == http.HTTPStatus.OK
@@ -476,8 +477,8 @@ def test_send_message_with_unexpected_action_returns_400_error(client,
 def test_send_message_with_recaptcha_score_below_threshold_400_error(client,
                                                                      subtests):
     """Test 400 error returned when reCAPTCHA score is below threshold."""
-    for score in [misakoba_mail.app.RECAPTCHA_DEFAULT_SCORE_THRESHOLD - 0.1,
-                  misakoba_mail.app.RECAPTCHA_DEFAULT_SCORE_THRESHOLD - 0.2]:
+    threshold = misakoba_mail.messages.RECAPTCHA_DEFAULT_SCORE_THRESHOLD
+    for score in [threshold - 0.1, threshold - 0.2]:
         with subtests.test(score=score):
             with mock.patch('requests.post', autospec=True) as mock_post:
                 mock_json = mock_post.return_value.json
@@ -956,7 +957,7 @@ def _a_site_verify_response_with(
     for var, attribute, present_on_success, default in [
         (score, 'score', True, 0.9),
         (action, 'action', True,
-         misakoba_mail.app.RECAPTCHA_DEFAULT_EXPECTED_ACTION),
+         misakoba_mail.messages.RECAPTCHA_DEFAULT_EXPECTED_ACTION),
         (challenge_ts, 'challenge_ts', True, '2020-10-01T03:17:06Z'),
         (hostname, 'hostname', True, 'some_verify_host'),
         (error_codes, 'error-codes', False, ['invalid-input-secret']),
