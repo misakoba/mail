@@ -86,7 +86,8 @@ def _populate_config_from_environment(config):
         try:
             config['PROXY_FIX_X_FOR'] = int(proxy_fix_x_for)
         except ValueError as error:
-            raise misakoba_mail.exceptions.InvalidProxyFixXForError(proxy_fix_x_for) from error
+            raise misakoba_mail.exceptions.InvalidProxyFixXForError(
+                proxy_fix_x_for) from error
 
     config['USE_PROXY_FIX'] = use_proxy_fix
 
@@ -105,7 +106,8 @@ def _configure_logging_level_from_env(config):
     if logging_level_name := os.environ.get('LOGGING_LEVEL'):
         logging_level = logging_levels_by_name.get(logging_level_name)
         if logging_level is None:
-            raise misakoba_mail.exceptions.InvalidLoggingLevelError(logging_level_name)
+            raise misakoba_mail.exceptions.InvalidLoggingLevelError(
+                logging_level_name)
         config['LOGGING_LEVEL'] = logging_level
 
 
